@@ -327,6 +327,13 @@ export const ADMIN_HOST = __env__('BC_ADMIN_HOST', true)
 export const FRONTEND_HOST = __env__('BC_FRONTEND_HOST', true)
 
 /**
+ * Frontend dev host (docker).
+ *
+ * @type {string}
+ */
+export const FRONTEND_DEV_HOST = __env__('BC_FRONTEND_DEV_HOST', false, '')
+
+/**
  * Default language. Default is en. Available options: en, fr, es.
  *
  * @type {string}
@@ -442,6 +449,41 @@ export const IPINFO_API_KEY = __env__('BC_IPINFO_API_KEY', false)
  * @type {string}
  */
 export const IPINFO_DEFAULT_COUNTRY = __env__('BC_IPINFO_DEFAULT_COUNTRY', false, 'US')
+
+/**
+ * Enable dual booking flow (category pages with search).
+ *
+ * @type {boolean}
+ */
+export const DUAL_BOOKING_FLOW_ENABLED = helper.StringToBoolean(__env__('BC_DUAL_BOOKING_FLOW_ENABLED', false, 'false'))
+
+/**
+ * Enable rental agreement requirement at checkout.
+ *
+ * @type {boolean}
+ */
+export const RENTAL_AGREEMENT_ENABLED = helper.StringToBoolean(__env__('BC_RENTAL_AGREEMENT_ENABLED', false, 'false'))
+
+/**
+ * Enable delivery option at checkout.
+ *
+ * @type {boolean}
+ */
+export const DELIVERY_OPTION_ENABLED = helper.StringToBoolean(__env__('BC_DELIVERY_OPTION_ENABLED', false, 'false'))
+
+/**
+ * Delivery price per km.
+ *
+ * @type {number}
+ */
+export const DELIVERY_BASE_RATE = Number.parseFloat(__env__('BC_DELIVERY_BASE_RATE', false, '2'))
+
+/**
+ * Minimum delivery fee.
+ *
+ * @type {number}
+ */
+export const DELIVERY_MIN_FEE = Number.parseFloat(__env__('BC_DELIVERY_MIN_FEE', false, '10'))
 
 /**
  * Enables or disables Sentry error reporting. Set to true to enable.
@@ -589,6 +631,18 @@ export interface Booking extends Document {
   isDeposit: boolean
   isPayedInFull?: boolean
   paypalOrderId?: string
+  rentalAgreementAccepted?: boolean
+  rentalAgreementAcceptedAt?: Date
+  deliveryOption?: 'pickup' | 'delivery'
+  deliveryAddress?: {
+    street?: string
+    city?: string
+    zipCode?: string
+    country?: string
+    latitude?: number
+    longitude?: number
+  }
+  deliveryPrice?: number
 }
 
 /**
@@ -897,4 +951,10 @@ export interface Setting extends Document {
   minRentalHours: number
   minPickupDropoffHour: number
   maxPickupDropoffHour: number
+  dualBookingFlowEnabled?: boolean
+  rentalAgreementEnabled?: boolean
+  rentalAgreementContent?: string
+  deliveryOptionEnabled?: boolean
+  deliveryBaseRate?: number
+  deliveryMinFee?: number
 }

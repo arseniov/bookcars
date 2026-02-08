@@ -59,6 +59,12 @@ export const updateSettings = async (req: Request, res: Response) => {
       minRentalHours,
       minPickupDropoffHour,
       maxPickupDropoffHour,
+      dualBookingFlowEnabled,
+      rentalAgreementEnabled,
+      rentalAgreementContent,
+      deliveryOptionEnabled,
+      deliveryBaseRate,
+      deliveryMinFee,
     }: bookcarsTypes.UpdateSettingsPayload = req.body
     const settings = await Setting.findOne({})
 
@@ -67,6 +73,12 @@ export const updateSettings = async (req: Request, res: Response) => {
       settings.minRentalHours = minRentalHours
       settings.minPickupDropoffHour = minPickupDropoffHour
       settings.maxPickupDropoffHour = maxPickupDropoffHour
+      settings.dualBookingFlowEnabled = dualBookingFlowEnabled
+      settings.rentalAgreementEnabled = rentalAgreementEnabled
+      settings.rentalAgreementContent = rentalAgreementContent
+      settings.deliveryOptionEnabled = deliveryOptionEnabled
+      settings.deliveryBaseRate = deliveryBaseRate
+      settings.deliveryMinFee = deliveryMinFee
 
       await settings.save()
 

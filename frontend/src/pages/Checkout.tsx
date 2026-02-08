@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   OutlinedInput,
@@ -48,6 +48,7 @@ import * as LocationService from '@/services/LocationService'
 import * as PaymentService from '@/services/PaymentService'
 import * as StripeService from '@/services/StripeService'
 import * as PayPalService from '@/services/PayPalService'
+import * as SettingService from '@/services/SettingService'
 import { useRecaptchaContext, RecaptchaContextType } from '@/context/RecaptchaContext'
 import Layout from '@/components/Layout'
 import Error from '@/components/Error'
@@ -64,13 +65,11 @@ import ViewOnMapButton from '@/components/ViewOnMapButton'
 import MapDialog from '@/components/MapDialog'
 import Backdrop from '@/components/SimpleBackdrop'
 import Unauthorized from '@/components/Unauthorized'
+import RentalAgreementDialog from '@/components/RentalAgreementDialog'
+import DeliveryOption from '@/components/DeliveryOption'
 
 import '@/assets/css/checkout.css'
 
-//
-// Make sure to call `loadStripe` outside of a component’s render to avoid
-// recreating the `Stripe` object on every render.
-//
 const stripePromise = env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.Stripe ? loadStripe(env.STRIPE_PUBLISHABLE_KEY) : null
 
 const Checkout = () => {
@@ -102,13 +101,20 @@ const Checkout = () => {
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [bookingId, setBookingId] = useState<string>()
   const [sessionId, setSessionId] = useState<string>()
-  // const [distance, setDistance] = useState('')
   const [licenseRequired, setLicenseRequired] = useState(false)
   const [license, setLicense] = useState<string | null>(null)
   const [openMapDialog, setOpenMapDialog] = useState(false)
   const [payPalLoaded, setPayPalLoaded] = useState(false)
   const [payPalInit, setPayPalInit] = useState(false)
   const [payPalProcessing, setPayPalProcessing] = useState(false)
+  const [rentalAgreementOpen, setRentalAgreementOpen] = useState(false)
+  const [rentalAgreementAccepted, setRentalAgreementAccepted] = useState(false)
+  const [deliveryOption, setDeliveryOption] = useState<'pickup' | 'delivery'>('pickup')
+  const [deliveryAddress, setDeliveryAddress] = useState<bookcarsTypes.DeliveryAddress>()
+  const [deliveryPrice, setDeliveryPrice] = useState(0)
+  const [deliveryError, setDeliveryError] = useState<string>()
+  const [rentalAgreementEnabled, setRentalAgreementEnabled] = useState(false)
+  const [deliveryOptionEnabled, setDeliveryOptionEnabled] = useState(false)
 
   const birthDateRef = useRef<HTMLInputElement | null>(null)
   const additionalDriverBirthDateRef = useRef<HTMLInputElement | null>(null)
@@ -152,6 +158,21 @@ const Checkout = () => {
   const payDeposit = useWatch({ control, name: 'payDeposit' })
   const payInFull = useWatch({ control, name: 'payInFull' })
 
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const settings = await SettingService.getSettings()
+        if (settings) {
+          setRentalAgreementEnabled(settings.rentalAgreementEnabled || false)
+          setDeliveryOptionEnabled(settings.deliveryOptionEnabled || false)
+        }
+      } catch (err) {
+        console.error('Failed to fetch settings:', err)
+      }
+    }
+    fetchSettings()
+  }, [])
+
   const validateEmail = (email: string) => {
     return validator.isEmail(email)
   }
@@ -160,10 +181,31 @@ const Checkout = () => {
     return validator.isMobilePhone(phone)
   }
 
+  const handleRentalAgreementAccept = () => {
+    setRentalAgreementAccepted(true)
+    setRentalAgreementOpen(false)
+  }
+
+  const handleDeliveryChange = (value: 'pickup' | 'delivery', address?: bookcarsTypes.DeliveryAddress, price?: number) => {
+    setDeliveryOption(value)
+    if (address) {
+      setDeliveryAddress(address)
+    }
+    if (price !== undefined) {
+      setDeliveryPrice(price)
+    }
+    setDeliveryError(undefined)
+  }
+
   const onSubmit = async (data: FormFields) => {
     try {
       if (!car || !pickupLocation || !dropOffLocation || !from || !to) {
         helper.error()
+        return
+      }
+
+      if (rentalAgreementEnabled && !rentalAgreementAccepted) {
+        setRentalAgreementOpen(true)
         return
       }
 
@@ -181,7 +223,6 @@ const Checkout = () => {
       }
 
       if (!authenticated) {
-        // check email
         const status = await UserService.validateEmail({ email: data.email! })
         if (status === 200) {
           setEmailRegistered(false)
@@ -195,6 +236,11 @@ const Checkout = () => {
 
       if (car.supplier.licenseRequired && !license) {
         setLicenseRequired(true)
+        return
+      }
+
+      if (deliveryOptionEnabled && deliveryOption === 'delivery' && !deliveryAddress?.street) {
+        setDeliveryError('Please enter a delivery address')
         return
       }
 
@@ -221,6 +267,10 @@ const Checkout = () => {
         amount = price + depositPrice
       }
 
+      if (deliveryOption === 'delivery') {
+        amount += deliveryPrice
+      }
+
       const basePrice = await bookcarsHelper.convertPrice(amount, PaymentService.getCurrency(), env.BASE_CURRENCY)
 
       const booking: bookcarsTypes.Booking = {
@@ -239,6 +289,11 @@ const Checkout = () => {
         fullInsurance: data.fullInsurance,
         additionalDriver,
         price: basePrice,
+        rentalAgreementAccepted: rentalAgreementEnabled ? rentalAgreementAccepted : undefined,
+        rentalAgreementAcceptedAt: rentalAgreementEnabled && rentalAgreementAccepted ? new Date() : undefined,
+        deliveryOption: deliveryOptionEnabled ? deliveryOption : undefined,
+        deliveryAddress: deliveryOption === 'delivery' ? deliveryAddress : undefined,
+        deliveryPrice: deliveryOption === 'delivery' ? deliveryPrice : 0,
       }
 
       if (adRequired && additionalDriver && data.additionalDriverBirthDate) {
@@ -250,9 +305,6 @@ const Checkout = () => {
         }
       }
 
-      //
-      // Stripe Payment Gateway
-      //
       let _customerId: string | undefined
       let _sessionId: string | undefined
       if (!payLater) {
@@ -266,6 +318,10 @@ const Checkout = () => {
             finalPrice = depositPrice
           } else if (payInFull) {
             finalPrice = price + depositPrice
+          }
+
+          if (deliveryOption === 'delivery') {
+            finalPrice += deliveryPrice
           }
 
           const payload: bookcarsTypes.CreatePaymentPayload = {
@@ -374,14 +430,6 @@ const Checkout = () => {
         return
       }
 
-      // if (_pickupLocation.latitude && _pickupLocation.longitude) {
-      //   const l = await helper.getLocation()
-      //   if (l) {
-      //     const d = bookcarsHelper.distance(_pickupLocation.latitude, _pickupLocation.longitude, l[0], l[1], 'K')
-      //     setDistance(bookcarsHelper.formatDistance(d, UserService.getLanguage()))
-      //   }
-      // }
-
       if (dropOffLocationId !== pickupLocationId) {
         _dropOffLocation = await LocationService.getLocation(dropOffLocationId)
       } else {
@@ -446,8 +494,6 @@ const Checkout = () => {
 
                     <CarList
                       cars={[car]}
-                      // pickupLocationName={pickupLocation.name}
-                      // distance={distance}
                       hidePrice
                       sizeAuto
                       onLoad={() => setLoadingPage(false)}
@@ -471,6 +517,15 @@ const Checkout = () => {
                       onAdditionalDriverChange={(value) => setValue('additionalDriver', value)}
                     />
 
+                    {deliveryOptionEnabled && (
+                      <DeliveryOption
+                        value={deliveryOption}
+                        onChange={handleDeliveryChange}
+                        pickupLocationId={pickupLocation._id}
+                        error={deliveryError}
+                      />
+                    )}
+
                     <div className="checkout-details-container">
                       <div className="checkout-info">
                         <CarIcon />
@@ -491,6 +546,14 @@ const Checkout = () => {
                           <span className="checkout-detail-title">{commonStrings.DROP_OFF_LOCATION}</span>
                           <div className="checkout-detail-value">{dropOffLocation.name}</div>
                         </div>
+                        {deliveryOption === 'delivery' && deliveryAddress && (
+                          <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
+                            <span className="checkout-detail-title">{strings.DELIVERY_ADDRESS}</span>
+                            <div className="checkout-detail-value">
+                              {deliveryAddress.street}, {deliveryAddress.city} {deliveryAddress.zipCode}
+                            </div>
+                          </div>
+                        )}
                         <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
                           <span className="checkout-detail-title">{strings.CAR}</span>
                           <div className="checkout-detail-value">{`${car.name} (${bookcarsHelper.formatPrice(price / days, commonStrings.CURRENCY, language)}${commonStrings.DAILY})`}</div>
@@ -508,8 +571,18 @@ const Checkout = () => {
                         )}
                         <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
                           <span className="checkout-detail-title">{strings.COST}</span>
-                          <div className="checkout-detail-value booking-price">{bookcarsHelper.formatPrice(price, commonStrings.CURRENCY, language)}</div>
+                          <div className="checkout-detail-value booking-price">
+                            {bookcarsHelper.formatPrice(price, commonStrings.CURRENCY, language)}
+                          </div>
                         </div>
+                        {deliveryOption === 'delivery' && deliveryPrice > 0 && (
+                          <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
+                            <span className="checkout-detail-title">{strings.DELIVERY_FEE}</span>
+                            <div className="checkout-detail-value booking-price">
+                              {bookcarsHelper.formatPrice(deliveryPrice, commonStrings.CURRENCY, language)}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -534,7 +607,6 @@ const Checkout = () => {
                           <FormControl fullWidth margin="dense">
                             <InputLabel className="required">{commonStrings.EMAIL}</InputLabel>
                             <OutlinedInput
-                              // {...register('email')}
                               type="text"
                               label={commonStrings.EMAIL}
                               error={!!errors.email || emailRegistered}
@@ -583,7 +655,6 @@ const Checkout = () => {
                           <FormControl fullWidth margin="dense">
                             <InputLabel className="required">{commonStrings.PHONE}</InputLabel>
                             <OutlinedInput
-                              // {...register('phone')}
                               type="text"
                               label={commonStrings.PHONE}
                               error={!!errors.phone}
@@ -713,7 +784,6 @@ const Checkout = () => {
                           <FormControl fullWidth margin="dense">
                             <InputLabel className="required">{commonStrings.EMAIL}</InputLabel>
                             <OutlinedInput
-                              // {...register('additionalDriverEmail')}
                               inputRef={additionalDriverEmailRef}
                               value={additionalDriverEmail}
                               type="text"
@@ -738,7 +808,6 @@ const Checkout = () => {
                           <FormControl fullWidth margin="dense">
                             <InputLabel className="required">{commonStrings.PHONE}</InputLabel>
                             <OutlinedInput
-                              // {...register('additionalDriverPhone')}
                               inputRef={additionalDriverPhoneRef}
                               value={additionalDriverPhone}
                               type="text"
@@ -783,8 +852,6 @@ const Checkout = () => {
                         </div>
                       </div>
                     )}
-
-                    {/* Payment options */}
 
                     <div className="payment-options-container">
                       <div className="checkout-info">
@@ -864,8 +931,6 @@ const Checkout = () => {
                       </div>
                     </div>
 
-                    {/* Checkout checklist */}
-
                     <div className="checkout-details-container">
                       <div className="checkout-info">
                         <ChecklistIcon />
@@ -887,8 +952,6 @@ const Checkout = () => {
                       </div>
                     </div>
 
-                    {/* Total price */}
-
                     <div className="payment-info">
                       <div className="payment-info-title">
                         {
@@ -899,8 +962,8 @@ const Checkout = () => {
                         {
                           bookcarsHelper.formatPrice(
                             payDeposit ? depositPrice
-                              : payInFull ? (price + depositPrice)
-                                : price
+                              : payInFull ? (price + depositPrice + (deliveryOption === 'delivery' ? deliveryPrice : 0))
+                                : price + (deliveryOption === 'delivery' ? deliveryPrice : 0)
                             , commonStrings.CURRENCY, language)
                         }
                       </div>
@@ -932,6 +995,9 @@ const Checkout = () => {
                                   amount = depositPrice
                                 } else if (payInFull) {
                                   amount = price + depositPrice
+                                }
+                                if (deliveryOption === 'delivery') {
+                                  amount += deliveryPrice
                                 }
                                 const orderId = await PayPalService.createOrder(bookingId!, amount, PaymentService.getCurrency(), name, description)
                                 return orderId
@@ -995,11 +1061,6 @@ const Checkout = () => {
                         onClick={async () => {
                           try {
                             if (bookingId && sessionId) {
-                              //
-                              // Delete temporary booking on cancel.
-                              // Otherwise, temporary bookings are
-                              // automatically deleted through a TTL index.
-                              //
                               await BookingService.deleteTempBooking(bookingId, sessionId)
                             }
                             if (!authenticated && license) {
@@ -1049,6 +1110,17 @@ const Checkout = () => {
           pickupLocation={pickupLocation}
           openMapDialog={openMapDialog}
           onClose={() => setOpenMapDialog(false)}
+        />
+
+        <RentalAgreementDialog
+          open={rentalAgreementOpen}
+          onClose={() => setRentalAgreementOpen(false)}
+          onAccept={handleRentalAgreementAccept}
+          carId={car?._id || ''}
+          pickupLocationId={pickupLocation?._id || ''}
+          dropOffLocationId={dropOffLocation?._id || ''}
+          from={from || new Date()}
+          to={to || new Date()}
         />
       </Layout>
 

@@ -1,0 +1,27 @@
+.rental-agreement-content {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.rental-agreement-content .agreement-text {
+  line-height: 1.6;
+}
+
+.rental-agreement-content h2 {
+  margin-bottom: 16px;
+  font-size: 1.25rem;
+}
+
+.rental-agreement-content ul {
+  margin: 16px 0;
+  padding-left: 24px;
+}
+
+.rental-agreement-content li {
+  margin-bottom: 8px;
+}
+
+.rental-agreement-content p {
+  margin-bottom: 12px;
+}

@@ -107,6 +107,25 @@ export interface Booking {
   isDeposit?: boolean
   isPayedInFull?: boolean
   paypalOrderId?: string
+  rentalAgreementAccepted?: boolean
+  rentalAgreementAcceptedAt?: Date
+  deliveryOption?: 'pickup' | 'delivery'
+  deliveryAddress?: DeliveryAddress
+  deliveryPrice?: number
+}
+
+export interface DeliveryAddress {
+  street?: string
+  city?: string
+  zipCode?: string
+  country?: string
+  latitude?: number
+  longitude?: number
+}
+
+export interface CalculateDeliveryPricePayload {
+  pickupLocationId: string
+  address: DeliveryAddress
 }
 
 export interface CheckoutPayload {
@@ -627,6 +646,12 @@ export interface Setting {
   minRentalHours: number
   minPickupDropoffHour: number
   maxPickupDropoffHour: number
+  dualBookingFlowEnabled?: boolean
+  rentalAgreementEnabled?: boolean
+  rentalAgreementContent?: string
+  deliveryOptionEnabled?: boolean
+  deliveryBaseRate?: number
+  deliveryMinFee?: number
 }
 
 export interface UpdateSettingsPayload {
@@ -634,6 +659,12 @@ export interface UpdateSettingsPayload {
   minRentalHours: number
   minPickupDropoffHour: number
   maxPickupDropoffHour: number
+  dualBookingFlowEnabled?: boolean
+  rentalAgreementEnabled?: boolean
+  rentalAgreementContent?: string
+  deliveryOptionEnabled?: boolean
+  deliveryBaseRate?: number
+  deliveryMinFee?: number
 }
 
 // 
@@ -663,4 +694,12 @@ export interface CarOptions {
   collisionDamageWaiver?: boolean
   fullInsurance?: boolean
   additionalDriver?: boolean
+}
+
+export interface Category {
+  id: string
+  name: string
+  carRange: CarRange
+  description?: string
+  image?: string
 }

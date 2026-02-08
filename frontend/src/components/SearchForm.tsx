@@ -28,6 +28,7 @@ interface SearchFormProps {
   dropOffLocation?: string
   ranges?: bookcarsTypes.CarRange[]
   onCancel?: () => void
+  onSubmit?: (data: any) => void
 }
 
 const SearchForm = ({
@@ -35,6 +36,7 @@ const SearchForm = ({
   dropOffLocation: __dropOffLocation,
   ranges: __ranges,
   onCancel,
+  onSubmit: __onSubmit,
 }: SearchFormProps) => {
   const navigate = useNavigate()
 
@@ -295,15 +297,19 @@ const SearchForm = ({
       return
     }
 
-    setTimeout(navigate, 0, '/search', {
-      state: {
-        pickupLocationId: pickupLocationId,
-        dropOffLocationId: dropOffLocationId,
-        from: data.from,
-        to: data.to,
-        ranges,
-      },
-    })
+    if (__onSubmit) {
+      __onSubmit(data)
+    } else {
+      setTimeout(navigate, 0, '/search', {
+        state: {
+          pickupLocationId: pickupLocationId,
+          dropOffLocationId: dropOffLocationId,
+          from: data.from,
+          to: data.to,
+          ranges,
+        },
+      })
+    }
   }
 
   return (

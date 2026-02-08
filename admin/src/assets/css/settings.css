@@ -19,6 +19,15 @@ div.settings {
   color: #121212;
 }
 
+.settings-form-subtitle {
+  text-align: center;
+  text-transform: capitalize;
+  color: #121212;
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-size: 1.2rem;
+}
+
 .settings-net-wrapper {
   margin: 32px 0;
 }

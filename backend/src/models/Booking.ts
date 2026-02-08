@@ -111,6 +111,29 @@ const bookingSchema = new Schema<env.Booking>(
     paypalOrderId: {
       type: String,
     },
+    rentalAgreementAccepted: {
+      type: Boolean,
+      default: false,
+    },
+    rentalAgreementAcceptedAt: {
+      type: Date,
+    },
+    deliveryOption: {
+      type: String,
+      enum: ['pickup', 'delivery'],
+    },
+    deliveryAddress: {
+      street: String,
+      city: String,
+      zipCode: String,
+      country: String,
+      latitude: Number,
+      longitude: Number,
+    },
+    deliveryPrice: {
+      type: Number,
+      default: 0,
+    },
     expireAt: {
       //
       // Bookings created from checkout with Stripe are temporary and

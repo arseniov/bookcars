@@ -1,8 +1,29 @@
 import * as bookcarsHelper from ':bookcars-helper'
+import * as bookcarsTypes from ':bookcars-types'
+import axiosInstance from './axiosInstance'
 import env from '@/config/env.config'
 
 /**
-* Set currency.
+ * Calculate delivery price.
+ *
+ * @async
+ * @param {string} pickupLocationId
+ * @param {bookcarsTypes.DeliveryAddress} address
+ * @returns {Promise<number>}
+ */
+export const calculateDeliveryPrice = async (
+  pickupLocationId: string,
+  address: bookcarsTypes.DeliveryAddress,
+): Promise<number> => {
+  const res = await axiosInstance.post(
+    '/api/calculate-delivery-price',
+    { pickupLocationId, address },
+  )
+  return res.data
+}
+
+/**
+ * Set currency.
 *
 * @param {string} currency
 */

@@ -24,6 +24,32 @@ const settingSchema = new Schema<env.Setting>({
     min: 0,
     max: 23,
   },
+  dualBookingFlowEnabled: {
+    type: Boolean,
+    default: false,
+  },
+  rentalAgreementEnabled: {
+    type: Boolean,
+    default: false,
+  },
+  rentalAgreementContent: {
+    type: String,
+    default: '',
+  },
+  deliveryOptionEnabled: {
+    type: Boolean,
+    default: false,
+  },
+  deliveryBaseRate: {
+    type: Number,
+    default: 2,
+    min: 0,
+  },
+  deliveryMinFee: {
+    type: Number,
+    default: 10,
+    min: 0,
+  },
 }, {
   timestamps: true,
   strict: true,

@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { strings as commonStrings } from '@/lang/common'
 
-// const numberRegex = /^\d+(\.\d+)?$/
 const numberRegex = /^\d+$/
 
 const validateHour = (val: string) => {
@@ -14,6 +13,12 @@ export const schema = z.object({
   minRentalHours: z.string().refine((val) => !val || (numberRegex.test(val) && Number.parseFloat(val) >= 1), { message: commonStrings.FIELD_NOT_VALID }),
   minPickupDropoffHour: z.string().refine((val) => !val || (numberRegex.test(val) && validateHour(val)), { message: commonStrings.FIELD_NOT_VALID }),
   maxPickupDropoffHour: z.string().refine((val) => !val || (numberRegex.test(val) && validateHour(val)), { message: commonStrings.FIELD_NOT_VALID }),
+  dualBookingFlowEnabled: z.boolean(),
+  rentalAgreementEnabled: z.boolean(),
+  rentalAgreementContent: z.string().optional(),
+  deliveryOptionEnabled: z.boolean(),
+  deliveryBaseRate: z.string().refine((val) => !val || (numberRegex.test(val) && Number.parseFloat(val) >= 0), { message: commonStrings.FIELD_NOT_VALID }),
+  deliveryMinFee: z.string().refine((val) => !val || (numberRegex.test(val) && Number.parseFloat(val) >= 0), { message: commonStrings.FIELD_NOT_VALID }),
 })
 
 export type FormFields = z.infer<typeof schema>

@@ -6,6 +6,7 @@ import * as logger from '../utils/logger'
 const whitelist = [
   helper.trimEnd(env.ADMIN_HOST, '/'),
   helper.trimEnd(env.FRONTEND_HOST, '/'),
+  helper.trimEnd(env.FRONTEND_DEV_HOST, '/'),
 ]
 
 /**

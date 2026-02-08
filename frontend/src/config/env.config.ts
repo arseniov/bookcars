@@ -134,6 +134,9 @@ const env = {
   MAP_LONGITUDE: Number(String(import.meta.env.VITE_BC_MAP_LONGITUDE || '1.6528399999999976')),
   MAP_ZOOM: Number(String(import.meta.env.VITE_BC_MAP_ZOOM || '5')),
   PASSWORD_MIN_LENGTH: 6,
+  DUAL_BOOKING_FLOW_ENABLED: (import.meta.env.VITE_BC_DUAL_BOOKING_FLOW && import.meta.env.VITE_BC_DUAL_BOOKING_FLOW.toLowerCase()) === 'true',
+  RENTAL_AGREEMENT_ENABLED: (import.meta.env.VITE_BC_RENTAL_AGREEMENT && import.meta.env.VITE_BC_RENTAL_AGREEMENT.toLowerCase()) === 'true',
+  DELIVERY_OPTION_ENABLED: (import.meta.env.VITE_BC_DELIVERY_OPTION && import.meta.env.VITE_BC_DELIVERY_OPTION.toLowerCase()) === 'true',
 }
 
 export default env

@@ -404,7 +404,7 @@ export const convertPrice = async (amount: number, from: string, to: string): Pr
  * @param {string} currency
  * @returns {boolean}
  */
-export const checkCurrency = (currency: string) => currencies.findIndex((c) => c === currency) > -1
+export const checkCurrency = (currency: string): boolean => currencies.findIndex((c: string) => c === currency) > -1
 
 /**
  * Check whether language is french
@@ -630,4 +630,36 @@ export const truncateString = (str: string, maxLength: number) => {
   }
 
   return str.slice(0, maxLength)
+}
+
+/**
+ * Categories (car ranges with metadata).
+ */
+export const categories: bookcarsTypes.Category[] = [
+  { id: 'mini', name: 'Small Cars', carRange: bookcarsTypes.CarRange.Mini, description: 'Compact and fuel-efficient vehicles perfect for city driving.' },
+  { id: 'midi', name: 'SUVs', carRange: bookcarsTypes.CarRange.Midi, description: 'Spacious and versatile vehicles for family adventures.' },
+  { id: 'maxi', name: 'Vans', carRange: bookcarsTypes.CarRange.Maxi, description: 'Large vehicles for group travel or cargo transport.' },
+  { id: 'scooter', name: 'Scooters', carRange: bookcarsTypes.CarRange.Scooter, description: 'Quick and agile two-wheeled vehicles for urban mobility.' },
+  { id: 'bus', name: 'Buses', carRange: bookcarsTypes.CarRange.Bus, description: 'Large passenger vehicles for group transportation.' },
+  { id: 'truck', name: 'Trucks', carRange: bookcarsTypes.CarRange.Truck, description: 'Heavy-duty vehicles for cargo and utility purposes.' },
+  { id: 'caravan', name: 'Caravans', carRange: bookcarsTypes.CarRange.Caravan, description: 'Mobile homes and recreational vehicles for travel.' },
+]
+
+/**
+ * Get a category by ID.
+ *
+ * @param {string} id
+ * @returns {bookcarsTypes.Category | undefined}
+ */
+export const getCategory = (id: string): bookcarsTypes.Category | undefined => {
+  return categories.find(c => c.id === id)
+}
+
+/**
+ * Get all categories.
+ *
+ * @returns {bookcarsTypes.Category[]}
+ */
+export const getAllCategories = (): bookcarsTypes.Category[] => {
+  return categories
 }
