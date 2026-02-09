@@ -36,7 +36,6 @@ const SettingForm = ({ settings, onSubmit: onFormSubmit }: SettingFormProps) => 
       setValue('maxPickupDropoffHour', settings.maxPickupDropoffHour.toString())
       setValue('dualBookingFlowEnabled', settings.dualBookingFlowEnabled || false)
       setValue('rentalAgreementEnabled', settings.rentalAgreementEnabled || false)
-      setValue('rentalAgreementContent', settings.rentalAgreementContent || '')
       setValue('deliveryOptionEnabled', settings.deliveryOptionEnabled || false)
       setValue('deliveryBaseRate', (settings.deliveryBaseRate || 2).toString())
       setValue('deliveryMinFee', (settings.deliveryMinFee || 10).toString())
@@ -52,7 +51,6 @@ const SettingForm = ({ settings, onSubmit: onFormSubmit }: SettingFormProps) => 
         maxPickupDropoffHour: Number(data.maxPickupDropoffHour),
         dualBookingFlowEnabled: data.dualBookingFlowEnabled,
         rentalAgreementEnabled: data.rentalAgreementEnabled,
-        rentalAgreementContent: data.rentalAgreementContent,
         deliveryOptionEnabled: data.deliveryOptionEnabled,
         deliveryBaseRate: Number(data.deliveryBaseRate),
         deliveryMinFee: Number(data.deliveryMinFee),
