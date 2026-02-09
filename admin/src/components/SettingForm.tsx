@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button, FormControl, FormHelperText, Input, InputLabel, Paper, Switch, FormControlLabel } from '@mui/material'
 import * as bookcarsTypes from ':bookcars-types'
@@ -113,16 +113,28 @@ const SettingForm = ({ settings, onSubmit: onFormSubmit }: SettingFormProps) => 
         <h2 className="settings-form-subtitle">{strings.FEATURE_FLAGS}</h2>
 
         <FormControl fullWidth margin="dense">
-          <FormControlLabel
-            control={<Switch {...register('dualBookingFlowEnabled')} />}
-            label={strings.DUAL_BOOKING_FLOW}
+          <Controller
+            name="dualBookingFlowEnabled"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                control={<Switch {...field} checked={field.value} />}
+                label={strings.DUAL_BOOKING_FLOW}
+              />
+            )}
           />
         </FormControl>
 
         <FormControl fullWidth margin="dense">
-          <FormControlLabel
-            control={<Switch {...register('rentalAgreementEnabled')} />}
-            label={strings.RENTAL_AGREEMENT}
+          <Controller
+            name="rentalAgreementEnabled"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                control={<Switch {...field} checked={field.value} />}
+                label={strings.RENTAL_AGREEMENT}
+              />
+            )}
           />
         </FormControl>
 
@@ -134,9 +146,15 @@ const SettingForm = ({ settings, onSubmit: onFormSubmit }: SettingFormProps) => 
         )}
 
         <FormControl fullWidth margin="dense">
-          <FormControlLabel
-            control={<Switch {...register('deliveryOptionEnabled')} />}
-            label={strings.DELIVERY_OPTION}
+          <Controller
+            name="deliveryOptionEnabled"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                control={<Switch {...field} checked={field.value} />}
+                label={strings.DELIVERY_OPTION}
+              />
+            )}
           />
         </FormControl>
 
