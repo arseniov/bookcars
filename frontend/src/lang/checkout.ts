@@ -92,7 +92,6 @@ const strings = new LocalizedStrings({
     DELIVERY_FEE: 'Delivery fee',
     DELIVERY_ADDRESS_REQUIRED: 'Please enter a complete delivery address',
   },
-  },
   es: {
     BOOKING_HEADING: 'Reservar ahora',
     BOOKING_OPTIONS: 'Tus opciones de reserva',
