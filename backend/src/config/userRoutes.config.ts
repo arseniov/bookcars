@@ -35,6 +35,9 @@ const routes = {
   updateLicense: '/api/update-license/:id',
   deleteLicense: '/api/delete-license/:id',
   deleteTempLicense: '/api/delete-temp-license/:file',
+  sendOtp: '/api/send-otp',
+  verifyOtp: '/api/verify-otp',
+  resendOtp: '/api/resend-otp',
 }
 
 export default routes

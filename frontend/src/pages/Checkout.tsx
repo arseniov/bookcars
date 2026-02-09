@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   OutlinedInput,
@@ -58,6 +58,8 @@ import Layout from '@/components/Layout'
 import Error from '@/components/Error'
 import DatePicker from '@/components/DatePicker'
 import SocialLogin from '@/components/SocialLogin'
+import PasswordInput from '@/components/PasswordInput'
+import { useUserContext, UserContextType } from '@/context/UserContext'
 import Map from '@/components/Map'
 import DriverLicense from '@/components/DriverLicense'
 import Progress from '@/components/Progress'
@@ -72,6 +74,9 @@ import Unauthorized from '@/components/Unauthorized'
 import RentalAgreementDialog from '@/components/RentalAgreementDialog'
 import DeliveryOption from '@/components/DeliveryOption'
 import CheckoutStepper from '@/components/CheckoutStepper'
+import OtpVerification from '@/components/OtpVerification'
+import SignInForm from '@/components/SignInForm'
+import SignUpForm from '@/components/SignUpForm'
 
 import '@/assets/css/checkout.css'
 import '@/assets/css/checkout-stepper.css'
@@ -79,6 +84,7 @@ import '@/assets/css/checkout-stepper.css'
 const stripePromise = env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.Stripe ? loadStripe(env.STRIPE_PUBLISHABLE_KEY) : null
 
 type CheckoutStep = 0 | 1 | 2
+type AuthMode = 'signin' | 'signup' | 'otp'
 
 const Checkout = () => {
   const location = useLocation()
@@ -121,6 +127,11 @@ const Checkout = () => {
   const [rentalAgreementEnabled, setRentalAgreementEnabled] = useState(false)
   const [deliveryOptionEnabled, setDeliveryOptionEnabled] = useState(false)
   const [currentStep, setCurrentStep] = useState<CheckoutStep>(0)
+  const [authMode, setAuthMode] = useState<AuthMode>('signin')
+  const [signupEmail, setSignupEmail] = useState('')
+  const [signupPassword, setSignupPassword] = useState('')
+
+  const { setUserLoaded } = useUserContext() as UserContextType
 
   const birthDateRef = useRef<HTMLInputElement | null>(null)
   const additionalDriverBirthDateRef = useRef<HTMLInputElement | null>(null)
@@ -212,7 +223,7 @@ const Checkout = () => {
 
   const onLoad = async (_user?: bookcarsTypes.User) => {
     setUser(_user)
-    setAuthenticated(_user !== undefined && _user.verified)
+    setAuthenticated(!!_user && _user.verified === true)
     setLanguage(UserService.getLanguage())
 
     const { state } = location
@@ -455,24 +466,48 @@ const Checkout = () => {
     }
   }
 
+  const onSignInSuccess = () => {
+    setAuthenticated(true)
+    setCurrentStep(1)
+  }
+
+  const onSignUpSuccess = () => {
+    setAuthenticated(true)
+    setCurrentStep(1)
+  }
+
+  const onAuthSwitch = () => {
+    setAuthMode(authMode === 'signin' ? 'signup' : 'signin')
+  }
+
   const renderStep0Auth = () => (
     <div className="checkout-auth-step">
-      <Typography variant="h5" gutterBottom>
-        {strings.STEP_AUTH_TITLE}
-      </Typography>
-      <Typography variant="body1" color="textSecondary" gutterBottom>
-        {strings.STEP_AUTH_SUBTITLE}
-      </Typography>
-      <Box width="100%" maxWidth={400} mt={4}>
-        <SocialLogin reloadPage onSuccess={handleAuthSuccess} />
-      </Box>
+      {authMode === 'signin' && (
+        <SignInForm
+          onSuccess={onSignInSuccess}
+          onSwitchToSignUp={onAuthSwitch}
+        />
+      )}
+      {authMode === 'signup' && (
+        <SignUpForm
+          onSuccess={onSignUpSuccess}
+          onSwitchToSignIn={onAuthSwitch}
+        />
+      )}
+      {authMode === 'otp' && (
+        <OtpVerification
+          email={signupEmail}
+          onVerified={onSignUpSuccess}
+          onBack={() => setAuthMode('signup')}
+        />
+      )}
     </div>
   )
 
   const renderStep1Details = () => (
     <form onSubmit={handleSubmit(() => { }, onError)}>
       <CheckoutOptions
-        car={car}
+        car={car!}
         from={from!}
         to={to!}
         language={language}
@@ -650,7 +685,8 @@ const Checkout = () => {
   )
 
   return (
-    <Layout onLoad={onLoad} strict={false}>
+    <>
+      <Layout onLoad={onLoad} strict={false}>
       {!user?.blacklisted && visible && car && from && to && pickupLocation && dropOffLocation && (
         <div className="checkout">
           <Paper className="checkout-form" elevation={10}>
@@ -701,8 +737,9 @@ const Checkout = () => {
       />
     </Layout>
 
-    {loadingPage && !noMatch && <Progress />
-  )
+    {loadingPage && !noMatch && <Progress />}
+  </>
+)
 }
 
 export default Checkout

@@ -82,45 +82,41 @@ const _signup = async (req: Request, res: Response, userType: bookcarsTypes.User
   }
 
   //
-  // Send confirmation email
+  // Send OTP for email verification
   //
+  const generateOtp = (): string => {
+    return Math.floor(100000 + Math.random() * 900000).toString()
+  }
+
   try {
-    // generate token and save
-    const token = new Token({ user: user._id, token: helper.generateToken() })
+    const otp = generateOtp()
+    const otpExpiresAt = new Date(Date.now() + env.OTP_EXPIRE_AT * 60 * 1000)
 
-    await token.save()
+    user.otp = otp
+    user.otpExpiresAt = otpExpiresAt
+    await user.save()
 
-    // Send email
     i18n.locale = user.language
-
-    const activationLink = `http${env.HTTPS ? 's' : ''}://${req.headers.host}/api/confirm-email/${user.email}/${token.token}`
 
     const mailOptions: nodemailer.SendMailOptions = {
       from: env.SMTP_FROM,
       to: user.email,
-      subject: i18n.t('ACCOUNT_ACTIVATION_SUBJECT'),
+      subject: i18n.t('OTP_SUBJECT'),
       html:
         `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
           <p style="font-size: 16px; color: #555;">
             ${i18n.t('HELLO')} ${user.fullName},<br><br>
-            ${i18n.t('ACCOUNT_ACTIVATION_LINK')}<br><br>
-            <a href="${activationLink}" target="_blank">${activationLink}</a><br><br>
+            ${i18n.t('OTP_MESSAGE')}<br><br>
+            <strong style="font-size: 24px; letter-spacing: 4px;">${otp}</strong><br><br>
+            ${i18n.t('OTP_EXPIRY', { minutes: env.OTP_EXPIRE_AT })}<br><br>
             ${i18n.t('REGARDS')}<br>
           </p>
         </div>`,
     }
+
     await mailHelper.sendMail(mailOptions)
     res.sendStatus(200)
   } catch (err) {
-    try {
-      //
-      // Delete user in case of smtp failure
-      //
-      await Token.deleteMany({ user: user._id.toString() })
-      await user.deleteOne()
-    } catch (deleteErr) {
-      logger.error(`[user.signup] ${i18n.t('DB_ERROR')} ${JSON.stringify(body)}`, deleteErr)
-    }
     logger.error(`[user.signup] ${i18n.t('SMTP_ERROR')}`, err)
     res.status(400).send(i18n.t('SMTP_ERROR') + err)
   }
@@ -1817,5 +1813,190 @@ export const deleteTempLicense = async (req: Request, res: Response) => {
   } catch (err) {
     logger.error(`[user.deleteTempLicense] ${i18n.t('DB_ERROR')} ${file}`, err)
     res.status(400).send(i18n.t('ERROR') + err)
+  }
+}
+
+/**
+ * Generate a 6-digit OTP code.
+ *
+ * @returns {string}
+ */
+const generateOtp = (): string => {
+  return Math.floor(100000 + Math.random() * 900000).toString()
+}
+
+/**
+ * Send OTP to user's email.
+ *
+ * @export
+ * @async
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {unknown}
+ */
+export const sendOtp = async (req: Request, res: Response) => {
+  const { body }: { body: bookcarsTypes.SendOtpPayload } = req
+  const { email } = body
+
+  try {
+    const trimmedEmail = helper.trim(email, ' ')
+
+    if (!helper.isValidEmail(trimmedEmail)) {
+      throw new Error('body.email is not valid')
+    }
+
+    const user = await User.findOne({ email: trimmedEmail })
+
+    if (!user) {
+      res.sendStatus(204)
+      return
+    }
+
+    const otp = generateOtp()
+    const otpExpiresAt = new Date(Date.now() + env.OTP_EXPIRE_AT * 60 * 1000)
+
+    user.otp = otp
+    user.otpExpiresAt = otpExpiresAt
+    await user.save()
+
+    i18n.locale = user.language
+
+    const mailOptions: nodemailer.SendMailOptions = {
+      from: env.SMTP_FROM,
+      to: user.email,
+      subject: i18n.t('OTP_SUBJECT'),
+      html:
+        `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <p style="font-size: 16px; color: #555;">
+            ${i18n.t('HELLO')} ${user.fullName},<br><br>
+            ${i18n.t('OTP_MESSAGE')}<br><br>
+            <strong style="font-size: 24px; letter-spacing: 4px;">${otp}</strong><br><br>
+            ${i18n.t('OTP_EXPIRY', { minutes: env.OTP_EXPIRE_AT })}<br><br>
+            ${i18n.t('REGARDS')}<br>
+          </p>
+        </div>`,
+    }
+
+    await mailHelper.sendMail(mailOptions)
+    res.sendStatus(200)
+  } catch (err) {
+    logger.error(`[user.sendOtp] ${i18n.t('DB_ERROR')} ${email}`, err)
+    res.status(400).send(i18n.t('DB_ERROR') + err)
+  }
+}
+
+/**
+ * Verify OTP code.
+ *
+ * @export
+ * @async
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {unknown}
+ */
+export const verifyOtp = async (req: Request, res: Response) => {
+  const { body }: { body: bookcarsTypes.VerifyOtpPayload } = req
+  const { email, otp } = body
+
+  try {
+    const trimmedEmail = helper.trim(email, ' ')
+
+    if (!helper.isValidEmail(trimmedEmail)) {
+      throw new Error('body.email is not valid')
+    }
+
+    if (!otp || otp.length !== 6) {
+      res.sendStatus(204)
+      return
+    }
+
+    const user = await User.findOne({ email: trimmedEmail })
+
+    if (!user || !user.otp || !user.otpExpiresAt) {
+      res.sendStatus(204)
+      return
+    }
+
+    if (new Date() > user.otpExpiresAt) {
+      res.sendStatus(204)
+      return
+    }
+
+    if (user.otp !== otp) {
+      res.sendStatus(204)
+      return
+    }
+
+    user.otp = undefined
+    user.otpExpiresAt = undefined
+    user.active = true
+    user.verified = true
+    user.expireAt = undefined
+    await user.save()
+
+    res.sendStatus(200)
+  } catch (err) {
+    logger.error(`[user.verifyOtp] ${i18n.t('DB_ERROR')} ${email}`, err)
+    res.status(400).send(i18n.t('DB_ERROR') + err)
+  }
+}
+
+/**
+ * Resend OTP to user's email.
+ *
+ * @export
+ * @async
+ * @param {Request} req
+ * @param {Response} res
+ * @returns {unknown}
+ */
+export const resendOtp = async (req: Request, res: Response) => {
+  const { body }: { body: bookcarsTypes.SendOtpPayload } = req
+  const { email } = body
+
+  try {
+    const trimmedEmail = helper.trim(email, ' ')
+
+    if (!helper.isValidEmail(trimmedEmail)) {
+      throw new Error('body.email is not valid')
+    }
+
+    const user = await User.findOne({ email: trimmedEmail })
+
+    if (!user) {
+      res.sendStatus(204)
+      return
+    }
+
+    const otp = generateOtp()
+    const otpExpiresAt = new Date(Date.now() + env.OTP_EXPIRE_AT * 60 * 1000)
+
+    user.otp = otp
+    user.otpExpiresAt = otpExpiresAt
+    await user.save()
+
+    i18n.locale = user.language
+
+    const mailOptions: nodemailer.SendMailOptions = {
+      from: env.SMTP_FROM,
+      to: user.email,
+      subject: i18n.t('OTP_SUBJECT'),
+      html:
+        `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <p style="font-size: 16px; color: #555;">
+            ${i18n.t('HELLO')} ${user.fullName},<br><br>
+            ${i18n.t('OTP_MESSAGE')}<br><br>
+            <strong style="font-size: 24px; letter-spacing: 4px;">${otp}</strong><br><br>
+            ${i18n.t('OTP_EXPIRY', { minutes: env.OTP_EXPIRE_AT })}<br><br>
+            ${i18n.t('REGARDS')}<br>
+          </p>
+        </div>`,
+    }
+
+    await mailHelper.sendMail(mailOptions)
+    res.sendStatus(200)
+  } catch (err) {
+    logger.error(`[user.resendOtp] ${i18n.t('DB_ERROR')} ${email}`, err)
+    res.status(400).send(i18n.t('DB_ERROR') + err)
   }
 }

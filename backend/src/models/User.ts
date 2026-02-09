@@ -141,6 +141,12 @@ const userSchema = new Schema<env.User>(
       type: String,
       default: '',
     },
+    otp: {
+      type: String,
+    },
+    otpExpiresAt: {
+      type: Date,
+    },
     expireAt: {
       //
       // Non verified and active users created from checkout with Stripe are temporary and

@@ -201,6 +201,13 @@ export const JWT_EXPIRE_AT = Number.parseInt(__env__('BC_JWT_EXPIRE_AT', false, 
 export const TOKEN_EXPIRE_AT = Number.parseInt(__env__('BC_TOKEN_EXPIRE_AT', false, '86400'), 10)
 
 /**
+ * OTP expiration in minutes. Default is 10 minutes.
+ *
+ * @type {number}
+ */
+export const OTP_EXPIRE_AT = Number.parseInt(__env__('BC_OTP_EXPIRE_AT', false, '10'), 10)
+
+/**
  * SMTP host.
  *
  * @type {string}
@@ -550,6 +557,8 @@ export interface User extends Document {
   notifyAdminOnNewCar?: boolean
   rentalAgreementEnabled?: boolean
   rentalAgreementContent?: string
+  otp?: string
+  otpExpiresAt?: Date
 }
 
 /**

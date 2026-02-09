@@ -567,3 +567,46 @@ export const deleteTempLicense = (file: string): Promise<number> =>
       { withCredentials: true }
     )
     .then((res) => res.status)
+
+/**
+ * Send OTP to user's email.
+ *
+ * @param {string} email
+ * @returns {Promise<number>}
+ */
+export const sendOtp = (email: string): Promise<number> =>
+  axiosInstance
+    .post(
+      '/api/send-otp',
+      { email }
+    )
+    .then((res) => res.status)
+
+/**
+ * Verify OTP code.
+ *
+ * @param {string} email
+ * @param {string} otp
+ * @returns {Promise<number>}
+ */
+export const verifyOtp = (email: string, otp: string): Promise<number> =>
+  axiosInstance
+    .post(
+      '/api/verify-otp',
+      { email, otp }
+    )
+    .then((res) => res.status)
+
+/**
+ * Resend OTP to user's email.
+ *
+ * @param {string} email
+ * @returns {Promise<number>}
+ */
+export const resendOtp = (email: string): Promise<number> =>
+  axiosInstance
+    .post(
+      '/api/resend-otp',
+      { email }
+    )
+    .then((res) => res.status)
