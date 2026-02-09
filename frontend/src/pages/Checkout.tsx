@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   OutlinedInput,
@@ -13,6 +13,12 @@ import {
   RadioGroup,
   Radio,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Box,
+  Typography,
 } from '@mui/material'
 import {
   DirectionsCar as CarIcon,
@@ -31,7 +37,6 @@ import { loadStripe } from '@stripe/stripe-js'
 import { PayPalButtons } from '@paypal/react-paypal-js'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import validator from 'validator'
 import { createSchema, FormFields } from '@/models/CheckoutForm'
 import CarList from '@/components/CarList'
 import * as bookcarsTypes from ':bookcars-types'
@@ -49,7 +54,6 @@ import * as PaymentService from '@/services/PaymentService'
 import * as StripeService from '@/services/StripeService'
 import * as PayPalService from '@/services/PayPalService'
 import * as SettingService from '@/services/SettingService'
-import { useRecaptchaContext, RecaptchaContextType } from '@/context/RecaptchaContext'
 import Layout from '@/components/Layout'
 import Error from '@/components/Error'
 import DatePicker from '@/components/DatePicker'
@@ -67,15 +71,18 @@ import Backdrop from '@/components/SimpleBackdrop'
 import Unauthorized from '@/components/Unauthorized'
 import RentalAgreementDialog from '@/components/RentalAgreementDialog'
 import DeliveryOption from '@/components/DeliveryOption'
+import CheckoutStepper from '@/components/CheckoutStepper'
 
 import '@/assets/css/checkout.css'
+import '@/assets/css/checkout-stepper.css'
 
 const stripePromise = env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.Stripe ? loadStripe(env.STRIPE_PUBLISHABLE_KEY) : null
+
+type CheckoutStep = 0 | 1 | 2
 
 const Checkout = () => {
   const location = useLocation()
   const navigate = useNavigate()
-  const { reCaptchaLoaded, generateReCaptchaToken } = useRecaptchaContext() as RecaptchaContextType
 
   const [user, setUser] = useState<bookcarsTypes.User>()
   const [car, setCar] = useState<bookcarsTypes.Car>()
@@ -95,8 +102,6 @@ const Checkout = () => {
   const [success, setSuccess] = useState(false)
   const [loadingPage, setLoadingPage] = useState(true)
   const [recaptchaError, setRecaptchaError] = useState(false)
-  const adRequired = true
-  const [adManuallyChecked, setAdManuallyChecked] = useState(false)
   const [paymentFailed, setPaymentFailed] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [bookingId, setBookingId] = useState<string>()
@@ -115,6 +120,7 @@ const Checkout = () => {
   const [deliveryError, setDeliveryError] = useState<string>()
   const [rentalAgreementEnabled, setRentalAgreementEnabled] = useState(false)
   const [deliveryOptionEnabled, setDeliveryOptionEnabled] = useState(false)
+  const [currentStep, setCurrentStep] = useState<CheckoutStep>(0)
 
   const birthDateRef = useRef<HTMLInputElement | null>(null)
   const additionalDriverBirthDateRef = useRef<HTMLInputElement | null>(null)
@@ -152,7 +158,6 @@ const Checkout = () => {
 
   const additionalDriverEmail = useWatch({ control, name: 'additionalDriverEmail' })
   const additionalDriverPhone = useWatch({ control, name: 'additionalDriverPhone' })
-
   const additionalDriver = useWatch({ control, name: 'additionalDriver' })
   const payLater = useWatch({ control, name: 'payLater' })
   const payDeposit = useWatch({ control, name: 'payDeposit' })
@@ -173,14 +178,6 @@ const Checkout = () => {
     fetchSettings()
   }, [])
 
-  const validateEmail = (email: string) => {
-    return validator.isEmail(email)
-  }
-
-  const validatePhone = (phone: string) => {
-    return validator.isMobilePhone(phone)
-  }
-
   const handleRentalAgreementAccept = () => {
     setRentalAgreementAccepted(true)
     setRentalAgreementOpen(false)
@@ -197,202 +194,25 @@ const Checkout = () => {
     setDeliveryError(undefined)
   }
 
-  const onSubmit = async (data: FormFields) => {
-    try {
-      if (!car || !pickupLocation || !dropOffLocation || !from || !to) {
-        helper.error()
-        return
-      }
-
-      if (rentalAgreementEnabled && !rentalAgreementAccepted) {
-        setRentalAgreementOpen(true)
-        return
-      }
-
-      let recaptchaToken = ''
-      if (reCaptchaLoaded) {
-        recaptchaToken = await generateReCaptchaToken()
-        if (!(await helper.verifyReCaptcha(recaptchaToken))) {
-          recaptchaToken = ''
+  const handleAuthSuccess = () => {
+    const checkAuth = async () => {
+      try {
+        const _user = await UserService.getUser()
+        if (_user && _user.verified) {
+          setUser(_user)
+          setAuthenticated(true)
+          setCurrentStep(1)
         }
-      }
-
-      if (env.RECAPTCHA_ENABLED && !recaptchaToken) {
-        setRecaptchaError(true)
-        return
-      }
-
-      if (!authenticated) {
-        const status = await UserService.validateEmail({ email: data.email! })
-        if (status === 200) {
-          setEmailRegistered(false)
-          setEmailInfo(true)
-        } else {
-          setEmailRegistered(true)
-          setEmailInfo(false)
-          return
-        }
-      }
-
-      if (car.supplier.licenseRequired && !license) {
-        setLicenseRequired(true)
-        return
-      }
-
-      if (deliveryOptionEnabled && deliveryOption === 'delivery' && (!deliveryAddress?.street || !deliveryAddress?.city)) {
-        setDeliveryError(strings.DELIVERY_ADDRESS_REQUIRED)
-        return
-      }
-
-      setPaymentFailed(false)
-
-      let driver: bookcarsTypes.User | undefined
-      let _additionalDriver: bookcarsTypes.AdditionalDriver | undefined
-
-      if (!authenticated) {
-        driver = {
-          email: data.email,
-          phone: data.phone,
-          fullName: data.fullName!,
-          birthDate: data.birthDate,
-          language: UserService.getLanguage(),
-          license: license || undefined,
-        }
-      }
-
-      let amount = price
-      if (payDeposit) {
-        amount = depositPrice
-      } else if (payInFull) {
-        amount = price + depositPrice
-      }
-
-      if (deliveryOption === 'delivery') {
-        amount += deliveryPrice
-      }
-
-      const basePrice = await bookcarsHelper.convertPrice(amount, PaymentService.getCurrency(), env.BASE_CURRENCY)
-
-      const booking: bookcarsTypes.Booking = {
-        supplier: car.supplier._id as string,
-        car: car._id,
-        driver: authenticated ? user?._id : undefined,
-        pickupLocation: pickupLocation._id,
-        dropOffLocation: dropOffLocation._id,
-        from,
-        to,
-        status: bookcarsTypes.BookingStatus.Pending,
-        cancellation: data.cancellation,
-        amendments: data.amendments,
-        theftProtection: data.theftProtection,
-        collisionDamageWaiver: data.collisionDamageWaiver,
-        fullInsurance: data.fullInsurance,
-        additionalDriver,
-        price: basePrice,
-        rentalAgreementAccepted: rentalAgreementEnabled ? rentalAgreementAccepted : undefined,
-        rentalAgreementAcceptedAt: rentalAgreementEnabled && rentalAgreementAccepted ? new Date() : undefined,
-        deliveryOption: deliveryOptionEnabled ? deliveryOption : undefined,
-        deliveryAddress: deliveryOption === 'delivery' ? deliveryAddress : undefined,
-        deliveryPrice: deliveryOption === 'delivery' ? deliveryPrice : 0,
-      }
-
-      if (adRequired && additionalDriver && data.additionalDriverBirthDate) {
-        _additionalDriver = {
-          fullName: data.additionalDriverFullName!,
-          email: data.additionalDriverEmail!,
-          phone: data.additionalDriverPhone!,
-          birthDate: data.additionalDriverBirthDate,
-        }
-      }
-
-      let _customerId: string | undefined
-      let _sessionId: string | undefined
-      if (!payLater) {
-        if (env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.Stripe) {
-          const name = bookcarsHelper.truncateString(`${env.WEBSITE_NAME} - ${car.name}`, StripeService.ORDER_NAME_MAX_LENGTH)
-          const _description = `${env.WEBSITE_NAME} - ${car.name} - ${daysLabel} - ${pickupLocation._id === dropOffLocation._id ? pickupLocation.name : `${pickupLocation.name} - ${dropOffLocation.name}`}`
-          const description = bookcarsHelper.truncateString(_description, StripeService.ORDER_DESCRIPTION_MAX_LENGTH)
-
-          let finalPrice = price
-          if (payDeposit) {
-            finalPrice = depositPrice
-          } else if (payInFull) {
-            finalPrice = price + depositPrice
-          }
-
-          if (deliveryOption === 'delivery') {
-            finalPrice += deliveryPrice
-          }
-
-          const payload: bookcarsTypes.CreatePaymentPayload = {
-            amount: finalPrice,
-            currency: PaymentService.getCurrency(),
-            locale: language,
-            receiptEmail: (!authenticated ? driver?.email : user?.email) as string,
-            name,
-            description,
-            customerName: (!authenticated ? driver?.fullName : user?.fullName) as string,
-          }
-          const res = await StripeService.createCheckoutSession(payload)
-          setClientSecret(res.clientSecret)
-          _sessionId = res.sessionId
-          _customerId = res.customerId
-        } else {
-          setPayPalLoaded(true)
-        }
-      }
-
-      booking.isDeposit = payDeposit
-      booking.isPayedInFull = payInFull
-
-      const payload: bookcarsTypes.CheckoutPayload = {
-        driver,
-        booking,
-        additionalDriver: _additionalDriver,
-        payLater: !!data.payLater,
-        sessionId: _sessionId,
-        customerId: _customerId,
-        payPal: env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.PayPal,
-      }
-
-      const { status, bookingId: _bookingId } = await BookingService.checkout(payload)
-
-      if (status === 200) {
-        if (payLater) {
-          setVisible(false)
-          setSuccess(true)
-        }
-        setBookingId(_bookingId)
-        setSessionId(_sessionId)
-      } else {
-        helper.error()
-      }
-    } catch (err) {
-      helper.error(err)
-    }
-  }
-
-  const onError = () => {
-    const firstErrorField = Object.keys(errors)[0] as keyof FormFields
-    if (firstErrorField) {
-      if (firstErrorField === 'birthDate' && birthDateRef.current) {
-        birthDateRef.current.focus()
-      }
-      if (firstErrorField === 'additionalDriverBirthDate' && additionalDriverBirthDateRef.current) {
-        additionalDriverBirthDateRef.current.focus()
-      } else if (firstErrorField === 'additionalDriverEmail' && additionalDriverEmailRef.current) {
-        additionalDriverEmailRef.current.focus()
-      } else if (firstErrorField === 'additionalDriverPhone' && additionalDriverPhoneRef.current) {
-        additionalDriverPhoneRef.current.focus()
-      } else {
-        setFocus(firstErrorField)
+      } catch (err) {
+        console.error('Failed to check auth:', err)
       }
     }
+    checkAuth()
   }
 
   const onLoad = async (_user?: bookcarsTypes.User) => {
     setUser(_user)
-    setAuthenticated(_user !== undefined)
+    setAuthenticated(_user !== undefined && _user.verified)
     setLanguage(UserService.getLanguage())
 
     const { state } = location
@@ -461,672 +281,427 @@ const Checkout = () => {
       setValue('collisionDamageWaiver', included(_car.collisionDamageWaiver))
       setValue('fullInsurance', included(_car.fullInsurance))
       setLicense(_user?.license || null)
+
+      if (_user && _user.verified) {
+        setAuthenticated(true)
+        setCurrentStep(1)
+      } else {
+        setCurrentStep(0)
+      }
+
       setVisible(true)
     } catch (err) {
       helper.error(err)
     }
   }
 
-  return (
-    <>
-      <Layout onLoad={onLoad} strict={false}>
-        {!user?.blacklisted && visible && car && from && to && pickupLocation && dropOffLocation && (
-          <>
-            <div className="checkout">
-              <Paper className="checkout-form" elevation={10}>
-                <h1 className="checkout-form-title">{strings.BOOKING_HEADING}</h1>
-                <form onSubmit={handleSubmit(onSubmit, onError)}>
-                  <div>
-                    {(
-                      (pickupLocation.latitude && pickupLocation.longitude)
-                      || (pickupLocation.parkingSpots && pickupLocation.parkingSpots.length > 0)
-                    ) && (
-                        <Map
-                          position={[pickupLocation.latitude || Number(pickupLocation.parkingSpots![0].latitude), pickupLocation.longitude || Number(pickupLocation.parkingSpots![0].longitude)]}
-                          initialZoom={10}
-                          parkingSpots={pickupLocation.parkingSpots}
-                          locations={[pickupLocation]}
-                          className="map"
-                        >
-                          <ViewOnMapButton onClick={() => setOpenMapDialog(true)} />
-                        </Map>
-                      )}
+  const validateStep1 = async (): Promise<boolean> => {
+    if (car?.supplier.licenseRequired && !license) {
+      setLicenseRequired(true)
+      return false
+    }
 
-                    <CarList
-                      cars={[car]}
-                      hidePrice
-                      sizeAuto
-                      onLoad={() => setLoadingPage(false)}
-                      hideSupplier={env.HIDE_SUPPLIERS}
-                    />
+    if (deliveryOptionEnabled && deliveryOption === 'delivery' && (!deliveryAddress?.street || !deliveryAddress?.city)) {
+      setDeliveryError(strings.DELIVERY_ADDRESS_REQUIRED)
+      return false
+    }
 
-                    <CheckoutOptions
-                      car={car}
-                      from={from}
-                      to={to}
-                      language={language}
-                      clientSecret={clientSecret}
-                      payPalLoaded={payPalLoaded}
-                      onPriceChange={(value) => setPrice(value)}
-                      onAdManuallyCheckedChange={(value) => setAdManuallyChecked(value)}
-                      onCancellationChange={(value) => setValue('cancellation', value)}
-                      onAmendmentsChange={(value) => setValue('amendments', value)}
-                      onTheftProtectionChange={(value) => setValue('theftProtection', value)}
-                      onCollisionDamageWaiverChange={(value) => setValue('collisionDamageWaiver', value)}
-                      onFullInsuranceChange={(value) => setValue('fullInsurance', value)}
-                      onAdditionalDriverChange={(value) => setValue('additionalDriver', value)}
-                    />
+    return true
+  }
 
-                    {deliveryOptionEnabled && (
-                      <DeliveryOption
-                        value={deliveryOption}
-                        onChange={handleDeliveryChange}
-                        pickupLocationId={pickupLocation._id}
-                        error={deliveryError}
-                      />
-                    )}
+  const goToStep2 = async () => {
+    const valid = await validateStep1()
+    if (valid) {
+      setCurrentStep(2)
+    }
+  }
 
-                    <div className="checkout-details-container">
-                      <div className="checkout-info">
-                        <CarIcon />
-                        <span>{strings.BOOKING_DETAILS}</span>
-                      </div>
-                      <div className="checkout-details">
-                        <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
-                          <span className="checkout-detail-title">{strings.DAYS}</span>
-                          <div className="checkout-detail-value">
-                            {daysLabel}
-                          </div>
-                        </div>
-                        <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
-                          <span className="checkout-detail-title">{commonStrings.PICK_UP_LOCATION}</span>
-                          <div className="checkout-detail-value">{pickupLocation.name}</div>
-                        </div>
-                        <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
-                          <span className="checkout-detail-title">{commonStrings.DROP_OFF_LOCATION}</span>
-                          <div className="checkout-detail-value">{dropOffLocation.name}</div>
-                        </div>
-                        {deliveryOption === 'delivery' && deliveryAddress && (
-                          <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
-                            <span className="checkout-detail-title">{strings.DELIVERY_ADDRESS}</span>
-                            <div className="checkout-detail-value">
-                              {deliveryAddress.street}, {deliveryAddress.city} {deliveryAddress.zipCode}
-                            </div>
-                          </div>
-                        )}
-                        <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
-                          <span className="checkout-detail-title">{strings.CAR}</span>
-                          <div className="checkout-detail-value">{`${car.name} (${bookcarsHelper.formatPrice(price / days, commonStrings.CURRENCY, language)}${commonStrings.DAILY})`}</div>
-                        </div>
-                        {!env.HIDE_SUPPLIERS && (
-                          <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
-                            <span className="checkout-detail-title">{commonStrings.SUPPLIER}</span>
-                            <div className="checkout-detail-value">
-                              <div className="car-supplier">
-                                <img src={bookcarsHelper.joinURL(env.CDN_USERS, car.supplier.avatar)} alt={car.supplier.fullName} style={{ height: env.SUPPLIER_IMAGE_HEIGHT }} />
-                                <span className="car-supplier-name">{car.supplier.fullName}</span>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
-                          <span className="checkout-detail-title">{strings.COST}</span>
-                          <div className="checkout-detail-value booking-price">
-                            {bookcarsHelper.formatPrice(price, commonStrings.CURRENCY, language)}
-                          </div>
-                        </div>
-                        {deliveryOption === 'delivery' && deliveryPrice > 0 && (
-                          <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
-                            <span className="checkout-detail-title">{strings.DELIVERY_FEE}</span>
-                            <div className="checkout-detail-value booking-price">
-                              {bookcarsHelper.formatPrice(deliveryPrice, commonStrings.CURRENCY, language)}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+  const goBackToStep1 = () => {
+    setCurrentStep(1)
+  }
 
-                    {!authenticated && (
-                      <div className="driver-details">
-                        <div className="checkout-info">
-                          <DriverIcon />
-                          <span>{strings.DRIVER_DETAILS}</span>
-                        </div>
-                        <div className="driver-details-form">
-                          <FormControl fullWidth margin="dense">
-                            <InputLabel className="required">{commonStrings.FULL_NAME}</InputLabel>
-                            <OutlinedInput
-                              {...register('fullName')}
-                              type="text"
-                              label={commonStrings.FULL_NAME}
-                              required
-                              error={!!errors.fullName}
-                              autoComplete="off"
-                            />
-                          </FormControl>
-                          <FormControl fullWidth margin="dense">
-                            <InputLabel className="required">{commonStrings.EMAIL}</InputLabel>
-                            <OutlinedInput
-                              type="text"
-                              label={commonStrings.EMAIL}
-                              error={!!errors.email || emailRegistered}
-                              required
-                              autoComplete="off"
-                              onChange={(e) => {
-                                if (errors.email) {
-                                  clearErrors('email')
-                                }
-                                setEmailRegistered(false)
-                                setEmailInfo(false)
-                                setValue('email', e.target.value)
-                              }}
-                              onBlur={async (e) => {
-                                trigger('email')
-                                const email = e.target.value
+  const onSubmit = async (data: FormFields) => {
+    try {
+      if (!car || !pickupLocation || !dropOffLocation || !from || !to) {
+        helper.error()
+        return
+      }
 
-                                if (validateEmail(email)) {
-                                  const status = await UserService.validateEmail({ email })
-                                  if (status === 200) {
-                                    setEmailRegistered(false)
-                                    setEmailInfo(true)
-                                  } else {
-                                    setEmailRegistered(true)
-                                    setEmailInfo(false)
-                                  }
-                                } else {
-                                  setEmailRegistered(false)
-                                  setEmailInfo(false)
-                                }
-                              }}
-                            />
-                            <FormHelperText error={!!errors.email || emailRegistered}>
-                              {(errors.email && errors.email.message) || ''}
-                              {(emailRegistered && (
-                                <span>
-                                  <span>{commonStrings.EMAIL_ALREADY_REGISTERED}</span>
-                                  <span> </span>
-                                  <a href={`/sign-in?c=${car._id}&p=${pickupLocation._id}&d=${dropOffLocation._id}&f=${from.getTime()}&t=${to.getTime()}&from=checkout`}>{strings.SIGN_IN}</a>
-                                </span>
-                              ))
-                                || ''}
-                              {(emailInfo && !errors.email && strings.EMAIL_INFO) || ''}
-                            </FormHelperText>
-                          </FormControl>
-                          <FormControl fullWidth margin="dense">
-                            <InputLabel className="required">{commonStrings.PHONE}</InputLabel>
-                            <OutlinedInput
-                              type="text"
-                              label={commonStrings.PHONE}
-                              error={!!errors.phone}
-                              required
-                              autoComplete="off"
-                              onChange={(e) => {
-                                if (errors.phone) {
-                                  clearErrors('phone')
-                                }
-                                setPhoneInfo(false)
-                                setValue('phone', e.target.value)
-                              }}
-                              onBlur={(e) => {
-                                trigger('phone')
-                                setPhoneInfo(validatePhone(e.target.value))
-                              }}
-                            />
-                            <FormHelperText error={!!errors.phone}>
-                              {(errors.phone && errors.phone.message) || ''}
-                              {(phoneInfo && strings.PHONE_INFO) || ''}
-                            </FormHelperText>
-                          </FormControl>
-                          <FormControl fullWidth margin="dense">
-                            <DatePicker
-                              {...register('birthDate')}
-                              ref={birthDateRef}
-                              label={commonStrings.BIRTH_DATE}
-                              variant="outlined"
-                              required
-                              onChange={(_birthDate) => {
-                                if (errors.birthDate) {
-                                  clearErrors('birthDate')
-                                }
-                                if (_birthDate) {
-                                  setValue('birthDate', _birthDate, { shouldValidate: true })
-                                } else {
-                                  setValue('birthDate', undefined, { shouldValidate: true })
-                                }
-                              }}
-                              language={language}
-                            />
-                            <FormHelperText error={!!errors.birthDate}>
-                              {(errors.birthDate && errors.birthDate.message) || ''}
-                            </FormHelperText>
-                          </FormControl>
+      if (rentalAgreementEnabled && !rentalAgreementAccepted) {
+        setRentalAgreementOpen(true)
+        return
+      }
 
-                          <div className="checkout-tos">
-                            <table>
-                              <tbody>
-                                <tr>
-                                  <td aria-label="tos">
-                                    <Checkbox
-                                      {...register('tos')}
-                                      onChange={(e) => {
-                                        if (e.target.checked && errors.tos) {
-                                          clearErrors('tos')
-                                        }
-                                      }}
-                                      color="primary"
-                                    />
-                                  </td>
-                                  <td>
-                                    <Link href="/tos" target="_blank" rel="noreferrer">
-                                      {commonStrings.TOS}
-                                    </Link>
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td colSpan={2}>
-                                    <FormHelperText error={!!errors.tos}>{errors.tos?.message || ''}</FormHelperText>
-                                  </td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
+      setPaymentFailed(false)
 
-                          <SocialLogin reloadPage />
-                        </div>
-                      </div>
-                    )}
+      let amount = price
+      if (payDeposit) {
+        amount = depositPrice
+      } else if (payInFull) {
+        amount = price + depositPrice
+      }
 
-                    {car.supplier.licenseRequired && (
-                      <div className="driver-details">
-                        <div className="checkout-info">
-                          <LicenseIcon />
-                          <span>{commonStrings.DRIVER_LICENSE}</span>
-                        </div>
-                        <div className="driver-details-form">
-                          <DriverLicense
-                            user={user}
-                            variant="outlined"
-                            onUpload={(filename) => {
-                              if (filename) {
-                                setLicenseRequired(false)
-                              } else {
-                                setLicenseRequired(true)
-                              }
-                              setLicense(filename)
-                            }}
-                            onDelete={() => {
-                              setLicenseRequired(false)
-                              setLicense(null)
-                            }}
-                            hideDelete={!!clientSecret || payPalLoaded}
-                          />
-                        </div>
-                      </div>
-                    )}
+      if (deliveryOption === 'delivery') {
+        amount += deliveryPrice
+      }
 
-                    {(adManuallyChecked && additionalDriver) && (
-                      <div className="driver-details">
-                        <div className="checkout-info">
-                          <DriverIcon />
-                          <span>{csStrings.ADDITIONAL_DRIVER}</span>
-                        </div>
-                        <div className="driver-details-form">
-                          <FormControl fullWidth margin="dense">
-                            <InputLabel className="required">{commonStrings.FULL_NAME}</InputLabel>
-                            <OutlinedInput
-                              {...register('additionalDriverFullName')}
-                              type="text"
-                              label={commonStrings.FULL_NAME}
-                              required={adRequired}
-                              autoComplete="off"
-                            />
-                          </FormControl>
-                          <FormControl fullWidth margin="dense">
-                            <InputLabel className="required">{commonStrings.EMAIL}</InputLabel>
-                            <OutlinedInput
-                              inputRef={additionalDriverEmailRef}
-                              value={additionalDriverEmail}
-                              type="text"
-                              label={commonStrings.EMAIL}
-                              error={!!errors.additionalDriverEmail}
-                              required={adRequired}
-                              autoComplete="off"
-                              onChange={(e) => {
-                                if (errors.additionalDriverEmail) {
-                                  clearErrors('additionalDriverEmail')
-                                }
-                                setValue('additionalDriverEmail', e.target.value)
-                              }}
-                              onBlur={() => {
-                                trigger('additionalDriverEmail')
-                              }}
-                            />
-                            <FormHelperText error={!!errors.additionalDriverEmail}>
-                              {(errors.additionalDriverEmail && errors.additionalDriverEmail.message) || ''}
-                            </FormHelperText>
-                          </FormControl>
-                          <FormControl fullWidth margin="dense">
-                            <InputLabel className="required">{commonStrings.PHONE}</InputLabel>
-                            <OutlinedInput
-                              inputRef={additionalDriverPhoneRef}
-                              value={additionalDriverPhone}
-                              type="text"
-                              label={commonStrings.PHONE}
-                              error={!!errors.additionalDriverPhone}
-                              required={adRequired}
-                              autoComplete="off"
-                              onChange={(e) => {
-                                if (errors.additionalDriverPhone) {
-                                  clearErrors('additionalDriverPhone')
-                                }
-                                setValue('additionalDriverPhone', e.target.value)
-                              }}
-                              onBlur={() => {
-                                trigger('additionalDriverPhone')
-                              }}
-                            />
-                            <FormHelperText error={!!errors.additionalDriverPhone}>
-                              {(errors.additionalDriverPhone && errors.additionalDriverPhone.message) || ''}
-                            </FormHelperText>
-                          </FormControl>
-                          <FormControl fullWidth margin="dense">
-                            <DatePicker
-                              {...register('additionalDriverBirthDate')}
-                              ref={additionalDriverBirthDateRef}
-                              label={commonStrings.BIRTH_DATE}
-                              variant="outlined"
-                              required={adRequired}
-                              onChange={(_birthDate) => {
-                                if (_birthDate) {
-                                  setValue('additionalDriverBirthDate', _birthDate, { shouldValidate: true })
-                                } else {
-                                  setValue('additionalDriverBirthDate', undefined, { shouldValidate: true })
-                                }
-                              }}
-                              language={language}
-                            />
-                            <FormHelperText error={!!errors.additionalDriverBirthDate}>
-                              {(errors.additionalDriverBirthDate && errors.additionalDriverBirthDate.message) || ''}
-                            </FormHelperText>
-                          </FormControl>
-                        </div>
-                      </div>
-                    )}
+      const basePrice = await bookcarsHelper.convertPrice(amount, PaymentService.getCurrency(), env.BASE_CURRENCY)
 
-                    <div className="payment-options-container">
-                      <div className="checkout-info">
-                        <PaymentOptionsIcon />
-                        <span>{strings.PAYMENT_OPTIONS}</span>
-                      </div>
-                      <div className="payment-options">
-                        <FormControl>
-                          <RadioGroup
-                            defaultValue={depositPrice > 0 ? 'payOnline' : 'payInFull'}
-                            onChange={(e) => {
-                              setValue('payLater', e.target.value === 'payLater')
-                              setValue('payDeposit', e.target.value === 'payDeposit')
-                              setValue('payInFull', e.target.value === 'payInFull')
-                            }}
-                          >
-                            {car.supplier.payLater && (
-                              <FormControlLabel
-                                value="payLater"
-                                control={<Radio />}
-                                disabled={!!clientSecret || payPalLoaded}
-                                className={clientSecret || payPalLoaded ? 'payment-radio-disabled' : ''}
-                                label={(
-                                  <span className="payment-button">
-                                    <span>{strings.PAY_LATER}</span>
-                                    <span className="payment-info">{strings.PAY_LATER_INFO}</span>
-                                  </span>
-                                )}
-                              />
-                            )}
-                            {
-                              car.deposit > 0 && (
-                                <FormControlLabel
-                                  value="payDeposit"
-                                  control={<Radio />}
-                                  disabled={!!clientSecret || payPalLoaded}
-                                  className={clientSecret || payPalLoaded ? 'payment-radio-disabled' : ''}
-                                  label={(
-                                    <span className="payment-button">
-                                      <span>{strings.PAY_DEPOSIT}</span>
-                                      <span className="payment-info">{strings.PAY_DEPOSIT_INFO}</span>
-                                    </span>
-                                  )}
-                                />
-                              )
-                            }
-                            {
-                              depositPrice > 0 && (
-                                <FormControlLabel
-                                  value="payOnline"
-                                  control={<Radio />}
-                                  disabled={!!clientSecret || payPalLoaded}
-                                  className={clientSecret || payPalLoaded ? 'payment-radio-disabled' : ''}
-                                  label={(
-                                    <span className="payment-button">
-                                      <span>{strings.PAY_ONLINE}</span>
-                                      <span className="payment-info">{strings.PAY_ONLINE_INFO}</span>
-                                    </span>
-                                  )}
-                                />
-                              )
-                            }
-                            <FormControlLabel
-                              value="payInFull"
-                              control={<Radio />}
-                              disabled={!!clientSecret || payPalLoaded}
-                              className={clientSecret || payPalLoaded ? 'payment-radio-disabled' : ''}
-                              label={(
-                                <span className="payment-button">
-                                  <span>{strings.PAY_IN_FULL}</span>
-                                  <span className="payment-info">{strings.PAY_IN_FULL_INFO}</span>
-                                </span>
-                              )}
-                            />
-                          </RadioGroup>
-                        </FormControl>
-                      </div>
-                    </div>
+      const booking: bookcarsTypes.Booking = {
+        supplier: car.supplier._id as string,
+        car: car._id,
+        driver: user?._id,
+        pickupLocation: pickupLocation._id,
+        dropOffLocation: dropOffLocation._id,
+        from,
+        to,
+        status: bookcarsTypes.BookingStatus.Pending,
+        cancellation: data.cancellation,
+        amendments: data.amendments,
+        theftProtection: data.theftProtection,
+        collisionDamageWaiver: data.collisionDamageWaiver,
+        fullInsurance: data.fullInsurance,
+        additionalDriver,
+        price: basePrice,
+        rentalAgreementAccepted: rentalAgreementEnabled ? rentalAgreementAccepted : undefined,
+        rentalAgreementAcceptedAt: rentalAgreementEnabled && rentalAgreementAccepted ? new Date() : undefined,
+        deliveryOption: deliveryOptionEnabled ? deliveryOption : undefined,
+        deliveryAddress: deliveryOption === 'delivery' ? deliveryAddress : undefined,
+        deliveryPrice: deliveryOption === 'delivery' ? deliveryPrice : 0,
+      }
 
-                    <div className="checkout-details-container">
-                      <div className="checkout-info">
-                        <ChecklistIcon />
-                        <span>{strings.PICK_UP_CHECKLIST_TITLE}</span>
-                      </div>
-                      <div className="checkout-details">
-                        <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
-                          <span className="checkout-detail-title">{strings.PICK_UP_CHECKLIST_ARRIVE_ON_TIME_TITLE}</span>
-                          <div className="checkout-detail-value checklist-content">
-                            {strings.PICK_UP_CHECKLIST_ARRIVE_ON_TIME_CONTENT}
-                          </div>
-                        </div>
-                        <div className="checkout-detail" style={{ height: bookingDetailHeight }}>
-                          <span className="checkout-detail-title">{strings.PICK_UP_CHECKLIST_DOCUMENTS_TITLE}</span>
-                          <div className="checkout-detail-value checklist-content">
-                            {strings.PICK_UP_CHECKLIST_DOCUMENTS_CONTENT}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+      let _customerId: string | undefined
+      let _sessionId: string | undefined
+      if (!data.payLater) {
+        if (env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.Stripe) {
+          const name = bookcarsHelper.truncateString(`${env.WEBSITE_NAME} - ${car.name}`, StripeService.ORDER_NAME_MAX_LENGTH)
+          const _description = `${env.WEBSITE_NAME} - ${car.name} - ${daysLabel} - ${pickupLocation._id === dropOffLocation._id ? pickupLocation.name : `${pickupLocation.name} - ${dropOffLocation.name}`}`
+          const description = bookcarsHelper.truncateString(_description, StripeService.ORDER_DESCRIPTION_MAX_LENGTH)
 
-                    <div className="payment-info">
-                      <div className="payment-info-title">
-                        {
-                          payDeposit ? strings.DEPOSIT : `${strings.PRICE_FOR} ${days} ${days > 1 ? strings.DAYS : strings.DAY}`
-                        }
-                      </div>
-                      <div className="payment-info-price">
-                        {
-                          bookcarsHelper.formatPrice(
-                            payDeposit ? depositPrice
-                              : payInFull ? (price + depositPrice + (deliveryOption === 'delivery' ? deliveryPrice : 0))
-                                : price + (deliveryOption === 'delivery' ? deliveryPrice : 0)
-                            , commonStrings.CURRENCY, language)
-                        }
-                      </div>
-                    </div>
+          let finalPrice = price
+          if (payDeposit) {
+            finalPrice = depositPrice
+          } else if (payInFull) {
+            finalPrice = price + depositPrice
+          }
 
-                    {(!car.supplier.payLater || !payLater) && (
-                      env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.Stripe
-                        ? (
-                          clientSecret && (
-                            <div className="payment-options-container">
-                              <EmbeddedCheckoutProvider
-                                stripe={stripePromise}
-                                options={{ clientSecret }}
-                              >
-                                <EmbeddedCheckout />
-                              </EmbeddedCheckoutProvider>
-                            </div>
-                          )
-                        )
-                        : payPalLoaded ? (
-                          <div className="payment-options-container">
-                            <PayPalButtons
-                              createOrder={async () => {
-                                const name = bookcarsHelper.truncateString(car.name, PayPalService.ORDER_NAME_MAX_LENGTH)
-                                const _description = `${car.name} - ${daysLabel} - ${pickupLocation._id === dropOffLocation._id ? pickupLocation.name : `${pickupLocation.name} - ${dropOffLocation.name}`}`
-                                const description = bookcarsHelper.truncateString(_description, PayPalService.ORDER_DESCRIPTION_MAX_LENGTH)
-                                let amount = price
-                                if (payDeposit) {
-                                  amount = depositPrice
-                                } else if (payInFull) {
-                                  amount = price + depositPrice
-                                }
-                                if (deliveryOption === 'delivery') {
-                                  amount += deliveryPrice
-                                }
-                                const orderId = await PayPalService.createOrder(bookingId!, amount, PaymentService.getCurrency(), name, description)
-                                return orderId
-                              }}
-                              onApprove={async (data, actions) => {
-                                try {
-                                  setPayPalProcessing(true)
-                                  await actions.order?.capture()
-                                  const { orderID } = data
-                                  const status = await PayPalService.checkOrder(bookingId!, orderID)
+          if (deliveryOption === 'delivery') {
+            finalPrice += deliveryPrice
+          }
 
-                                  if (status === 200) {
-                                    setVisible(false)
-                                    setSuccess(true)
-                                  } else {
-                                    setPaymentFailed(true)
-                                  }
-                                } catch (err) {
-                                  helper.error(err)
-                                } finally {
-                                  setPayPalProcessing(false)
-                                }
-                              }}
-                              onInit={() => {
-                                setPayPalInit(true)
-                              }}
-                              onCancel={() => {
-                                setPayPalProcessing(false)
-                              }}
-                              onError={() => {
-                                setPayPalProcessing(false)
-                              }}
-                            />
-                          </div>
-                        ) : null
-                    )}
-                    <div className="checkout-buttons">
-                      {(
-                        (env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.Stripe && !clientSecret)
-                        || (env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.PayPal && !payPalInit)
-                        || payLater) && (
-                          <Button
-                            type="submit"
-                            variant="contained"
-                            className="btn-checkout btn-margin-bottom"
-                            aria-label="Checkout"
-                            disabled={isSubmitting || (payPalLoaded && !payPalInit)}
-                          >
-                            {
-                              (isSubmitting || (payPalLoaded && !payPalInit))
-                                ? <CircularProgress color="inherit" size={24} />
-                                : strings.BOOK
-                            }
-                          </Button>
-                        )}
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        className="btn-cancel btn-margin-bottom"
-                        aria-label="Cancel"
-                        onClick={async () => {
-                          try {
-                            if (bookingId && sessionId) {
-                              await BookingService.deleteTempBooking(bookingId, sessionId)
-                            }
-                            if (!authenticated && license) {
-                              await UserService.deleteTempLicense(license)
-                            }
-                          } catch (err) {
-                            helper.error(err)
-                          } finally {
-                            navigate('/')
-                          }
-                        }}
-                      >
-                        {commonStrings.CANCEL}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="form-error">
-                    {paymentFailed && <Error message={strings.PAYMENT_FAILED} />}
-                    {recaptchaError && <Error message={commonStrings.RECAPTCHA_ERROR} />}
-                    {licenseRequired && <Error message={strings.LICENSE_REQUIRED} />}
-                  </div>
-                </form>
-              </Paper>
-            </div>
+          const payload: bookcarsTypes.CreatePaymentPayload = {
+            amount: finalPrice,
+            currency: PaymentService.getCurrency(),
+            locale: language,
+            receiptEmail: user?.email as string,
+            name,
+            description,
+            customerName: user?.fullName as string,
+          }
+          const res = await StripeService.createCheckoutSession(payload)
+          setClientSecret(res.clientSecret)
+          _sessionId = res.sessionId
+          _customerId = res.customerId
+        } else {
+          setPayPalLoaded(true)
+        }
+      }
 
-            <Footer />
-          </>
-        )}
+      booking.isDeposit = payDeposit
+      booking.isPayedInFull = payInFull
 
-        {user?.blacklisted && <Unauthorized />}
+      const payload: bookcarsTypes.CheckoutPayload = {
+        driver: undefined,
+        booking,
+        additionalDriver: undefined,
+        payLater: !!data.payLater,
+        sessionId: _sessionId,
+        customerId: _customerId,
+        payPal: env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.PayPal,
+      }
 
-        {noMatch && <NoMatch hideHeader />}
+      const { status, bookingId: _bookingId } = await BookingService.checkout(payload)
 
-        {success && bookingId && (
-          <CheckoutStatus
-            bookingId={bookingId}
-            language={language}
-            payLater={payLater}
-            status="success"
-            className="status"
-          />
-        )}
+      if (status === 200) {
+        if (data.payLater) {
+          setVisible(false)
+          setSuccess(true)
+        }
+        setBookingId(_bookingId)
+        setSessionId(_sessionId)
+      } else {
+        helper.error()
+      }
+    } catch (err) {
+      helper.error(err)
+    }
+  }
 
-        {payPalProcessing && <Backdrop text={strings.CHECKING} />}
+  const onError = () => {
+    const firstErrorField = Object.keys(errors)[0] as keyof FormFields
+    if (firstErrorField) {
+      if (firstErrorField === 'birthDate' && birthDateRef.current) {
+        birthDateRef.current.focus()
+      }
+      if (firstErrorField === 'additionalDriverBirthDate' && additionalDriverBirthDateRef.current) {
+        additionalDriverBirthDateRef.current.focus()
+      } else if (firstErrorField === 'additionalDriverEmail' && additionalDriverEmailRef.current) {
+        additionalDriverEmailRef.current.focus()
+      } else if (firstErrorField === 'additionalDriverPhone' && additionalDriverPhoneRef.current) {
+        additionalDriverPhoneRef.current.focus()
+      } else {
+        setFocus(firstErrorField)
+      }
+    }
+  }
 
-        <MapDialog
-          pickupLocation={pickupLocation}
-          openMapDialog={openMapDialog}
-          onClose={() => setOpenMapDialog(false)}
-        />
+  const renderStep0Auth = () => (
+    <div className="checkout-auth-step">
+      <Typography variant="h5" gutterBottom>
+        {strings.STEP_AUTH_TITLE}
+      </Typography>
+      <Typography variant="body1" color="textSecondary" gutterBottom>
+        {strings.STEP_AUTH_SUBTITLE}
+      </Typography>
+      <Box width="100%" maxWidth={400} mt={4}>
+        <SocialLogin reloadPage onSuccess={handleAuthSuccess} />
+      </Box>
+    </div>
+  )
 
-        <RentalAgreementDialog
-          open={rentalAgreementOpen}
-          onClose={() => setRentalAgreementOpen(false)}
-          onAccept={handleRentalAgreementAccept}
-          carId={car?._id || ''}
-          supplierId={car?.supplier?._id || ''}
+  const renderStep1Details = () => (
+    <form onSubmit={handleSubmit(() => { }, onError)}>
+      <CheckoutOptions
+        car={car}
+        from={from!}
+        to={to!}
+        language={language}
+        clientSecret={clientSecret}
+        payPalLoaded={payPalLoaded}
+        onPriceChange={(value) => setPrice(value)}
+        onAdManuallyCheckedChange={(value) => { }}
+        onCancellationChange={(value) => setValue('cancellation', value)}
+        onAmendmentsChange={(value) => setValue('amendments', value)}
+        onTheftProtectionChange={(value) => setValue('theftProtection', value)}
+        onCollisionDamageWaiverChange={(value) => setValue('collisionDamageWaiver', value)}
+        onFullInsuranceChange={(value) => setValue('fullInsurance', value)}
+        onAdditionalDriverChange={(value) => setValue('additionalDriver', value)}
+      />
+
+      {deliveryOptionEnabled && (
+        <DeliveryOption
+          value={deliveryOption}
+          onChange={handleDeliveryChange}
           pickupLocationId={pickupLocation?._id || ''}
-          dropOffLocationId={dropOffLocation?._id || ''}
-          from={from || new Date()}
-          to={to || new Date()}
+          error={deliveryError}
         />
-      </Layout>
+      )}
 
-      {loadingPage && !noMatch && <Progress />}
-    </>
+      <div className="checkout-step-actions">
+        <div />
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={goToStep2}
+        >
+          {strings.NEXT}
+        </Button>
+      </div>
+    </form>
+  )
+
+  const renderStep2Review = () => (
+    <form onSubmit={handleSubmit(onSubmit, onError)}>
+      <div className="checkout-review-section">
+        <h3>{strings.BOOKING_DETAILS}</h3>
+        <div className="checkout-review-details">
+          <div className="checkout-review-row">
+            <span className="checkout-review-label">{strings.DAYS}</span>
+            <span className="checkout-review-value">{daysLabel}</span>
+          </div>
+          <div className="checkout-review-row">
+            <span className="checkout-review-label">{commonStrings.PICK_UP_LOCATION}</span>
+            <span className="checkout-review-value">{pickupLocation?.name}</span>
+          </div>
+          <div className="checkout-review-row">
+            <span className="checkout-review-label">{commonStrings.DROP_OFF_LOCATION}</span>
+            <span className="checkout-review-value">{dropOffLocation?.name}</span>
+          </div>
+          {deliveryOption === 'delivery' && deliveryAddress && (
+            <div className="checkout-review-row">
+              <span className="checkout-review-label">{strings.DELIVERY_ADDRESS}</span>
+              <span className="checkout-review-value">
+                {deliveryAddress.street}, {deliveryAddress.city} {deliveryAddress.zipCode}
+              </span>
+            </div>
+          )}
+          <div className="checkout-review-row">
+            <span className="checkout-review-label">{strings.CAR}</span>
+            <span className="checkout-review-value">{`${car?.name} (${bookcarsHelper.formatPrice(price / days, commonStrings.CURRENCY, language)}${commonStrings.DAILY})`}</span>
+          </div>
+        </div>
+
+        <div className="checkout-total-row">
+          <span className="total-label">{strings.COST}</span>
+          <span className="total-value">
+            {bookcarsHelper.formatPrice(
+              (payDeposit ? depositPrice : payInFull ? price + depositPrice : price) + (deliveryOption === 'delivery' ? deliveryPrice : 0),
+              commonStrings.CURRENCY, language
+            )}
+          </span>
+        </div>
+      </div>
+
+      {(!car?.supplier.payLater || !payLater) && (
+        env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.Stripe
+          ? (
+            clientSecret && (
+              <div className="payment-options-container">
+                <EmbeddedCheckoutProvider
+                  stripe={stripePromise}
+                  options={{ clientSecret }}
+                >
+                  <EmbeddedCheckout />
+                </EmbeddedCheckoutProvider>
+              </div>
+            )
+          )
+          : payPalLoaded ? (
+            <div className="payment-options-container">
+              <PayPalButtons
+                createOrder={async () => {
+                  const name = bookcarsHelper.truncateString(car?.name || '', PayPalService.ORDER_NAME_MAX_LENGTH)
+                  const _description = `${car?.name} - ${daysLabel}`
+                  const description = bookcarsHelper.truncateString(_description, PayPalService.ORDER_DESCRIPTION_MAX_LENGTH)
+                  let amount = price
+                  if (payDeposit) {
+                    amount = depositPrice
+                  } else if (payInFull) {
+                    amount = price + depositPrice
+                  }
+                  if (deliveryOption === 'delivery') {
+                    amount += deliveryPrice
+                  }
+                  const orderId = await PayPalService.createOrder(bookingId!, amount, PaymentService.getCurrency(), name, description)
+                  return orderId
+                }}
+                onApprove={async (data, actions) => {
+                  try {
+                    setPayPalProcessing(true)
+                    await actions.order?.capture()
+                    const { orderID } = data
+                    const status = await PayPalService.checkOrder(bookingId!, orderID)
+
+                    if (status === 200) {
+                      setVisible(false)
+                      setSuccess(true)
+                    } else {
+                      setPaymentFailed(true)
+                    }
+                  } catch (err) {
+                    helper.error(err)
+                  } finally {
+                    setPayPalProcessing(false)
+                  }
+                }}
+                onInit={() => {
+                  setPayPalInit(true)
+                }}
+                onCancel={() => {
+                  setPayPalProcessing(false)
+                }}
+                onError={() => {
+                  setPayPalProcessing(false)
+                }}
+              />
+            </div>
+          ) : null
+      )}
+
+      <div className="checkout-step-actions">
+        <Button
+          variant="outlined"
+          color="primary"
+          onClick={goBackToStep1}
+        >
+          {strings.BACK}
+        </Button>
+        {(
+          (env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.Stripe && !clientSecret)
+          || (env.PAYMENT_GATEWAY === bookcarsTypes.PaymentGateway.PayPal && !payPalInit)
+          || payLater) && (
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              disabled={isSubmitting || (payPalLoaded && !payPalInit)}
+            >
+              {isSubmitting || (payPalLoaded && !payPalInit)
+                ? <CircularProgress color="inherit" size={24} />
+                : strings.BOOK}
+            </Button>
+          )}
+      </div>
+
+      <div className="form-error">
+        {paymentFailed && <Error message={strings.PAYMENT_FAILED} />}
+      </div>
+    </form>
+  )
+
+  return (
+    <Layout onLoad={onLoad} strict={false}>
+      {!user?.blacklisted && visible && car && from && to && pickupLocation && dropOffLocation && (
+        <div className="checkout">
+          <Paper className="checkout-form" elevation={10}>
+            <h1 className="checkout-form-title">{strings.BOOKING_HEADING}</h1>
+
+            <CheckoutStepper activeStep={currentStep} />
+
+            {currentStep === 0 && renderStep0Auth()}
+            {currentStep === 1 && renderStep1Details()}
+            {currentStep === 2 && renderStep2Review()}
+
+          </Paper>
+        </div>
+      )}
+
+      {user?.blacklisted && <Unauthorized />}
+
+      {noMatch && <NoMatch hideHeader />}
+
+      {success && bookingId && (
+        <CheckoutStatus
+          bookingId={bookingId}
+          language={language}
+          payLater={payLater}
+          status="success"
+          className="status"
+        />
+      )}
+
+      {payPalProcessing && <Backdrop text={strings.CHECKING} />}
+
+      <MapDialog
+        pickupLocation={pickupLocation}
+        openMapDialog={openMapDialog}
+        onClose={() => setOpenMapDialog(false)}
+      />
+
+      <RentalAgreementDialog
+        open={rentalAgreementOpen}
+        onClose={() => setRentalAgreementOpen(false)}
+        onAccept={handleRentalAgreementAccept}
+        carId={car?._id || ''}
+        supplierId={car?.supplier._id || ''}
+        pickupLocationId={pickupLocation?._id || ''}
+        dropOffLocationId={dropOffLocation?._id || ''}
+        from={from || new Date()}
+        to={to || new Date()}
+      />
+    </Layout>
+
+    {loadingPage && !noMatch && <Progress />
   )
 }
 
