@@ -202,6 +202,8 @@ export interface UpdateSupplierPayload {
   supplierCarLimit?: number
   notifyAdminOnNewCar?: boolean
   blacklisted?: boolean
+  rentalAgreementEnabled?: boolean
+  rentalAgreementContent?: string
 }
 
 export interface CreateCarPayload {
@@ -425,6 +427,8 @@ export interface User {
   priceChangeRate?: number
   supplierCarLimit?: number
   notifyAdminOnNewCar?: boolean
+  rentalAgreementEnabled?: boolean
+  rentalAgreementContent?: string
 }
 
 export interface Option {
@@ -661,7 +665,6 @@ export interface UpdateSettingsPayload {
   maxPickupDropoffHour: number
   dualBookingFlowEnabled?: boolean
   rentalAgreementEnabled?: boolean
-  rentalAgreementContent?: string
   deliveryOptionEnabled?: boolean
   deliveryBaseRate?: number
   deliveryMinFee?: number

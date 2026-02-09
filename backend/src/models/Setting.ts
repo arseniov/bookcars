@@ -32,10 +32,6 @@ const settingSchema = new Schema<env.Setting>({
     type: Boolean,
     default: false,
   },
-  rentalAgreementContent: {
-    type: String,
-    default: '',
-  },
   deliveryOptionEnabled: {
     type: Boolean,
     default: false,

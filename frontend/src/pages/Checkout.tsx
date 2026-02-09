@@ -1117,6 +1117,7 @@ const Checkout = () => {
           onClose={() => setRentalAgreementOpen(false)}
           onAccept={handleRentalAgreementAccept}
           carId={car?._id || ''}
+          supplierId={car?.supplier?._id || ''}
           pickupLocationId={pickupLocation?._id || ''}
           dropOffLocationId={dropOffLocation?._id || ''}
           from={from || new Date()}

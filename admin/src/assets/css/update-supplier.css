@@ -12,6 +12,15 @@ div.update-supplier .resend-activation-link {
   margin: 20px 0 10px;
 }
 
+.supplier-form-section-title {
+  margin: 24px 0 16px;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: #333;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 8px;
+}
+
 /* Device width is less than or equal to 960px */
 
 @media only screen and (width <=960px) {

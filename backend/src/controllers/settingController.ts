@@ -61,7 +61,6 @@ export const updateSettings = async (req: Request, res: Response) => {
       maxPickupDropoffHour,
       dualBookingFlowEnabled,
       rentalAgreementEnabled,
-      rentalAgreementContent,
       deliveryOptionEnabled,
       deliveryBaseRate,
       deliveryMinFee,
@@ -75,7 +74,6 @@ export const updateSettings = async (req: Request, res: Response) => {
       settings.maxPickupDropoffHour = maxPickupDropoffHour
       settings.dualBookingFlowEnabled = dualBookingFlowEnabled
       settings.rentalAgreementEnabled = rentalAgreementEnabled
-      settings.rentalAgreementContent = rentalAgreementContent
       settings.deliveryOptionEnabled = deliveryOptionEnabled
       settings.deliveryBaseRate = deliveryBaseRate
       settings.deliveryMinFee = deliveryMinFee

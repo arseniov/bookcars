@@ -42,3 +42,17 @@ export const getFrontendSuppliers = (data: bookcarsTypes.GetCarsPayload): Promis
       '/api/frontend-suppliers',
       data
     ).then((res) => res.data)
+
+/**
+ * Get supplier by ID.
+ *
+ * @param {string} id
+ * @returns {Promise<bookcarsTypes.User>}
+ */
+export const getSupplier = (id: string): Promise<bookcarsTypes.User> =>
+  axiosInstance
+    .get(
+      `/api/supplier/${id}`,
+      { withCredentials: true }
+    )
+    .then((res) => res.data)

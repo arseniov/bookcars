@@ -133,6 +133,14 @@ const userSchema = new Schema<env.User>(
     notifyAdminOnNewCar: {
       type: Boolean,
     },
+    rentalAgreementEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    rentalAgreementContent: {
+      type: String,
+      default: '',
+    },
     expireAt: {
       //
       // Non verified and active users created from checkout with Stripe are temporary and

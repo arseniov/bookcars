@@ -12,13 +12,14 @@ import {
   CircularProgress,
 } from '@mui/material'
 import { strings } from '@/lang/rental-agreement'
-import * as SettingService from '@/services/SettingService'
+import * as SupplierService from '@/services/SupplierService'
 
 interface RentalAgreementDialogProps {
   open: boolean
   onClose: () => void
   onAccept: () => void
   carId: string
+  supplierId: string
   pickupLocationId: string
   dropOffLocationId: string
   from: Date
@@ -30,6 +31,7 @@ const RentalAgreementDialog = ({
   onClose,
   onAccept,
   carId,
+  supplierId,
   pickupLocationId,
   dropOffLocationId,
   from,
@@ -44,9 +46,9 @@ const RentalAgreementDialog = ({
     const fetchContent = async () => {
       try {
         setLoading(true)
-        const settings = await SettingService.getSettings()
-        if (settings && settings.rentalAgreementContent) {
-          setContent(settings.rentalAgreementContent)
+        const supplier = await SupplierService.getSupplier(supplierId)
+        if (supplier && supplier.rentalAgreementContent) {
+          setContent(supplier.rentalAgreementContent)
         } else {
           setContent(strings.DEFAULT_CONTENT)
         }
@@ -57,11 +59,11 @@ const RentalAgreementDialog = ({
       }
     }
 
-    if (open) {
+    if (open && supplierId) {
       fetchContent()
       setAccepted(false)
     }
-  }, [open])
+  }, [open, supplierId])
 
   const handleAccept = () => {
     if (accepted) {

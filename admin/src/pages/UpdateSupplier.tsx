@@ -68,7 +68,9 @@ const UpdateSupplier = () => {
       minimumRentalDays: '',
       priceChangeRate: '',
       supplierCarLimit: '',
-      notifyAdminOnNewCar: false
+      notifyAdminOnNewCar: false,
+      rentalAgreementEnabled: false,
+      rentalAgreementContent: '',
     },
   })
 
@@ -76,6 +78,7 @@ const UpdateSupplier = () => {
   const licenseRequired = useWatch({ control, name: 'licenseRequired' })
   const notifyAdminOnNewCar = useWatch({ control, name: 'notifyAdminOnNewCar' })
   const blacklisted = useWatch({ control, name: 'blacklisted' })
+  const rentalAgreementEnabled = useWatch({ control, name: 'rentalAgreementEnabled' })
 
   const onBeforeUpload = () => {
     setLoading(true)
@@ -152,6 +155,8 @@ const UpdateSupplier = () => {
               setValue('supplierCarLimit', _supplier.supplierCarLimit?.toString() || '')
               setValue('notifyAdminOnNewCar', !!_supplier.notifyAdminOnNewCar)
               setValue('blacklisted', !!_supplier.blacklisted)
+              setValue('rentalAgreementEnabled', !!_supplier.rentalAgreementEnabled)
+              setValue('rentalAgreementContent', _supplier.rentalAgreementContent || '')
               setVisible(true)
               setLoading(false)
             } else {
@@ -211,6 +216,8 @@ const UpdateSupplier = () => {
         supplierCarLimit: data.supplierCarLimit ? Number(data.supplierCarLimit) : undefined,
         notifyAdminOnNewCar: data.notifyAdminOnNewCar,
         blacklisted: !!data.blacklisted,
+        rentalAgreementEnabled: !!data.rentalAgreementEnabled,
+        rentalAgreementContent: data.rentalAgreementContent,
       }
 
       const res = await SupplierService.update(payload)
@@ -448,6 +455,37 @@ const UpdateSupplier = () => {
               <FormControl fullWidth margin="dense">
                 <ContractList supplier={supplier} />
               </FormControl>
+
+              <h3 className="supplier-form-section-title">{csStrings.RENTAL_AGREEMENT}</h3>
+
+              <FormControl fullWidth margin="dense">
+                <FormControlLabel
+                  control={(
+                    <Switch
+                      {...register('rentalAgreementEnabled')}
+                      checked={!!rentalAgreementEnabled}
+                      onChange={(e) => {
+                        setValue('rentalAgreementEnabled', e.target.checked)
+                      }}
+                      color="primary"
+                    />
+                  )}
+                  label={csStrings.RENTAL_AGREEMENT_ENABLED}
+                />
+              </FormControl>
+
+              {rentalAgreementEnabled && (
+                <FormControl fullWidth margin="dense">
+                  <InputLabel>{csStrings.RENTAL_AGREEMENT_CONTENT}</InputLabel>
+                  <Input
+                    {...register('rentalAgreementContent')}
+                    type="text"
+                    multiline
+                    rows={4}
+                    autoComplete="off"
+                  />
+                </FormControl>
+              )}
 
               {admin && (
                 <FormControl fullWidth margin="dense" className="resend-activation-link">

@@ -81,6 +81,8 @@ export const update = async (req: Request, res: Response) => {
         supplierCarLimit,
         notifyAdminOnNewCar,
         blacklisted,
+        rentalAgreementEnabled,
+        rentalAgreementContent,
       } = body
       supplier.fullName = fullName
       supplier.phone = phone
@@ -93,6 +95,8 @@ export const update = async (req: Request, res: Response) => {
       supplier.supplierCarLimit = supplierCarLimit
       supplier.notifyAdminOnNewCar = notifyAdminOnNewCar
       supplier.blacklisted = !!blacklisted
+      supplier.rentalAgreementEnabled = !!rentalAgreementEnabled
+      supplier.rentalAgreementContent = rentalAgreementContent || ''
 
       await supplier.save()
       res.json({
@@ -110,6 +114,8 @@ export const update = async (req: Request, res: Response) => {
         supplierCarLimit: supplier.supplierCarLimit,
         notifyAdminOnNewCar: supplier.notifyAdminOnNewCar,
         blacklisted: supplier.blacklisted,
+        rentalAgreementEnabled: supplier.rentalAgreementEnabled,
+        rentalAgreementContent: supplier.rentalAgreementContent,
       })
       return
     }
@@ -229,6 +235,8 @@ export const getSupplier = async (req: Request, res: Response) => {
       supplierCarLimit,
       notifyAdminOnNewCar,
       blacklisted,
+      rentalAgreementEnabled,
+      rentalAgreementContent,
     } = user
 
     res.json({
@@ -247,6 +255,8 @@ export const getSupplier = async (req: Request, res: Response) => {
       supplierCarLimit,
       notifyAdminOnNewCar,
       blacklisted,
+      rentalAgreementEnabled,
+      rentalAgreementContent,
     })
   } catch (err) {
     logger.error(`[supplier.getSupplier] ${i18n.t('DB_ERROR')} ${id}`, err)

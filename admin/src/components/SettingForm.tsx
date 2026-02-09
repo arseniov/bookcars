@@ -138,13 +138,6 @@ const SettingForm = ({ settings, onSubmit: onFormSubmit }: SettingFormProps) => 
           />
         </FormControl>
 
-        {rentalAgreementEnabled && (
-          <FormControl fullWidth margin="dense">
-            <InputLabel>{strings.RENTAL_AGREEMENT_CONTENT}</InputLabel>
-            <Input {...register('rentalAgreementContent')} type="text" multiline rows={4} autoComplete="off" />
-          </FormControl>
-        )}
-
         <FormControl fullWidth margin="dense">
           <Controller
             name="deliveryOptionEnabled"
