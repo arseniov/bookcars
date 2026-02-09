@@ -18,7 +18,7 @@ export const fr = {
   ACCOUNT_ACTIVATION_EMAIL_SENT_PART_2: ". Il expirera au bout d'un jour. Si vous n'avez pas reçu d'e-mail de validation, cliquez sur renvoyer.",
   OTP_SUBJECT: 'Code de vérification',
   OTP_MESSAGE: 'Veuillez saisir le code suivant pour vérifier votre adresse e-mail :',
-  OTP_EXPIRY: 'Ce code expirera dans %(minutes) minutes.',
+  OTP_EXPIRY: 'Ce code expirera dans {{minutes}} minutes.',
   CAR_IMAGE_REQUIRED: 'Le champ image de Car ne peut pas être vide: ',
   CAR_IMAGE_NOT_FOUND: 'Le fichier image est introuvable : ',
   PASSWORD_RESET_SUBJECT: 'Réinitialisation du mot de passe',

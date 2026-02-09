@@ -529,6 +529,8 @@ const Checkout = () => {
           onChange={handleDeliveryChange}
           pickupLocationId={pickupLocation?._id || ''}
           error={deliveryError}
+          car={car}
+          rentalPrice={price}
         />
       )}
 

@@ -18,7 +18,7 @@ export const es = {
   ACCOUNT_ACTIVATION_EMAIL_SENT_PART_2: '. Expirará después de un día. Si no ha recibido el correo de validación, haga clic en reenviar.',
   OTP_SUBJECT: 'Código de verificación',
   OTP_MESSAGE: 'Por favor, ingrese el siguiente código para verificar su dirección de correo electrónico:',
-  OTP_EXPIRY: 'Este código expirará en %(minutes) minutos.',
+  OTP_EXPIRY: 'Este código expirará en {{minutes}} minutos.',
   CAR_IMAGE_REQUIRED: 'El campo de imagen de Car no puede estar vacío: ',
   CAR_IMAGE_NOT_FOUND: 'Archivo de imagen no encontrado: ',
   PASSWORD_RESET_SUBJECT: 'Restablecimiento de contraseña',

@@ -70,6 +70,8 @@ const env = {
   RECAPTCHA_ENABLED: (import.meta.env.VITE_BC_RECAPTCHA_ENABLED && import.meta.env.VITE_BC_RECAPTCHA_ENABLED.toLowerCase()) === 'true',
   RECAPTCHA_SITE_KEY: String(import.meta.env.VITE_BC_RECAPTCHA_SITE_KEY),
   PASSWORD_MIN_LENGTH: 6,
+  DELIVERY_BASE_PRICE: Number.parseFloat(String(import.meta.env.VITE_BC_DELIVERY_BASE_PRICE)) || 20,
+  DELIVERY_PERCENTAGE_PRICE: Number.parseFloat(String(import.meta.env.VITE_BC_DELIVERY_PERCENTAGE_PRICE)) || 5,
 }
 
 export default env

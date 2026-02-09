@@ -18,7 +18,7 @@ export const en = {
   ACCOUNT_ACTIVATION_EMAIL_SENT_PART_2: ". It will be expire after one day. If you didn't receive validation email click on resend.",
   OTP_SUBJECT: 'Verification Code',
   OTP_MESSAGE: 'Please enter the following code to verify your email address:',
-  OTP_EXPIRY: 'This code will expire in %(minutes) minutes.',
+  OTP_EXPIRY: 'This code will expire in {{minutes}} minutes.',
   CAR_IMAGE_REQUIRED: "Car's image field can't be blank: ",
   CAR_IMAGE_NOT_FOUND: 'Image file not found: ',
   PASSWORD_RESET_SUBJECT: 'Password Reset',

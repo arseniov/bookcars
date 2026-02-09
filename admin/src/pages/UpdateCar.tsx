@@ -89,6 +89,9 @@ const UpdateCar = () => {
       fullyBooked: false,
       comingSoon: false,
       blockOnPay: true,
+      canBeDelivered: true,
+      deliveryBasePrice: '',
+      deliveryPercentagePrice: '',
       type: '',
       gearbox: '',
       seats: '',
@@ -122,6 +125,7 @@ const UpdateCar = () => {
   const fullyBooked = useWatch({ control, name: 'fullyBooked' })
   const comingSoon = useWatch({ control, name: 'comingSoon' })
   const blockOnPay = useWatch({ control, name: 'blockOnPay' })
+  const canBeDelivered = useWatch({ control, name: 'canBeDelivered' })
   const type = useWatch({ control, name: 'type' })
   const gearbox = useWatch({ control, name: 'gearbox' })
   const seats = useWatch({ control, name: 'seats' })
@@ -219,6 +223,9 @@ const UpdateCar = () => {
         comingSoon: data.comingSoon,
         fullyBooked: data.fullyBooked,
         blockOnPay: data.blockOnPay,
+        canBeDelivered: data.canBeDelivered,
+        deliveryBasePrice: data.deliveryBasePrice ? Number(data.deliveryBasePrice) : env.DELIVERY_BASE_PRICE,
+        deliveryPercentagePrice: data.deliveryPercentagePrice ? Number(data.deliveryPercentagePrice) : env.DELIVERY_PERCENTAGE_PRICE,
         isDateBasedPrice: data.isDateBasedPrice,
         dateBasedPrices: data.dateBasedPrices || [],
       }
@@ -305,6 +312,13 @@ const UpdateCar = () => {
               setValue('fullyBooked', _car.fullyBooked || false)
               setValue('comingSoon', _car.comingSoon || false)
               setValue('blockOnPay', _car.blockOnPay || false)
+              setValue('canBeDelivered', _car.canBeDelivered ?? true)
+              if (_car.deliveryBasePrice) {
+                setValue('deliveryBasePrice', _car.deliveryBasePrice.toString())
+              }
+              if (_car.deliveryPercentagePrice) {
+                setValue('deliveryPercentagePrice', _car.deliveryPercentagePrice.toString())
+              }
               setValue('type', _car.type)
               setValue('gearbox', _car.gearbox)
               setValue('aircon', _car.aircon)
@@ -762,6 +776,42 @@ const UpdateCar = () => {
                   className="checkbox-fcl"
                 />
               </FormControl>
+
+              <FormControl fullWidth margin="dense" className="checkbox-fc">
+                <FormControlLabel
+                  control={(
+                    <Switch
+                      checked={canBeDelivered}
+                      onChange={(e) => setValue('canBeDelivered', e.target.checked)}
+                      color="primary"
+                    />
+                  )}
+                  label={strings.CAN_BE_DELIVERED}
+                  className="checkbox-fcl"
+                />
+              </FormControl>
+
+              {canBeDelivered && (
+                <>
+                  <FormControl fullWidth margin="dense">
+                    <InputLabel>{strings.DELIVERY_BASE_PRICE}</InputLabel>
+                    <Input
+                      type="number"
+                      {...register('deliveryBasePrice')}
+                      inputProps={{ min: 0, step: 0.01 }}
+                    />
+                  </FormControl>
+
+                  <FormControl fullWidth margin="dense">
+                    <InputLabel>{strings.DELIVERY_PERCENTAGE_PRICE}</InputLabel>
+                    <Input
+                      type="number"
+                      {...register('deliveryPercentagePrice')}
+                      inputProps={{ min: 0, max: 100, step: 0.01 }}
+                    />
+                  </FormControl>
+                </>
+              )}
 
               <FormControl fullWidth margin="dense">
                 <CarTypeList

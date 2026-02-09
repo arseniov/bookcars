@@ -252,6 +252,9 @@ export interface CreateCarPayload {
   rating?: number
   co2?: number
   blockOnPay?: boolean
+  canBeDelivered?: boolean
+  deliveryBasePrice?: number
+  deliveryPercentagePrice?: number
 }
 
 export interface UpdateCarPayload extends CreateCarPayload {

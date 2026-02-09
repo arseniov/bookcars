@@ -68,6 +68,9 @@ export const schema = z.object({
   co2: z.string().refine((val) => !val || numberRegex.test(val), { message: commonStrings.FIELD_NOT_VALID }).optional(),
   isDateBasedPrice: z.boolean(),
   dateBasedPrices: z.array(dateBasedPriceSchema).optional(),
+  canBeDelivered: z.boolean(),
+  deliveryBasePrice: z.string().refine((val) => !val || numberRegex.test(val), { message: commonStrings.FIELD_NOT_VALID }).optional(),
+  deliveryPercentagePrice: z.string().refine((val) => !val || numberRegex.test(val), { message: commonStrings.FIELD_NOT_VALID }).optional(),
 })
 
 export type FormFields = z.infer<typeof schema>

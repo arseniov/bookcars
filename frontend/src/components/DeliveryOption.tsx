@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   RadioGroup,
   Radio,
@@ -21,6 +21,8 @@ interface DeliveryOptionProps {
   onChange: (value: 'pickup' | 'delivery', address?: bookcarsTypes.DeliveryAddress, price?: number) => void
   pickupLocationId: string
   error?: string
+  car?: bookcarsTypes.Car
+  rentalPrice: number
 }
 
 const DeliveryOption = ({
@@ -28,6 +30,8 @@ const DeliveryOption = ({
   onChange,
   pickupLocationId,
   error,
+  car,
+  rentalPrice,
 }: DeliveryOptionProps) => {
   const [street, setStreet] = useState('')
   const [city, setCity] = useState('')
@@ -36,6 +40,10 @@ const DeliveryOption = ({
   const [loading, setLoading] = useState(false)
   const [deliveryPrice, setDeliveryPrice] = useState<number>(0)
   const [pickupLocation, setPickupLocation] = useState<bookcarsTypes.Location>()
+
+  const canBeDelivered = car?.canBeDelivered ?? true
+  const deliveryBasePrice = car?.deliveryBasePrice ?? env.DELIVERY_BASE_PRICE
+  const deliveryPercentagePrice = car?.deliveryPercentagePrice ?? env.DELIVERY_PERCENTAGE_PRICE
 
   useEffect(() => {
     const fetchPickupLocation = async () => {
@@ -74,9 +82,12 @@ const DeliveryOption = ({
         zipCode,
         country,
       }
-      const price = await PaymentService.calculateDeliveryPrice(pickupLocationId, address)
-      setDeliveryPrice(price)
-      onChange('delivery', address, price)
+
+      const percentageFee = (rentalPrice * deliveryPercentagePrice) / 100
+      const calculatedPrice = Math.max(percentageFee, deliveryBasePrice)
+
+      setDeliveryPrice(calculatedPrice)
+      onChange('delivery', address, calculatedPrice)
     } catch (err) {
       console.error('Failed to calculate delivery price:', err)
     } finally {
@@ -114,21 +125,23 @@ const DeliveryOption = ({
           }
         />
 
-        <FormControlLabel
-          value="delivery"
-          control={<Radio />}
-          label={
-            <Box className="delivery-option-label">
-              <Typography variant="body1">{strings.DELIVERY_OPTION}</Typography>
-              <Typography variant="body2" color="textSecondary">
-                {strings.DELIVERY_DESCRIPTION}
-              </Typography>
-            </Box>
-          }
-        />
+        {canBeDelivered && (
+          <FormControlLabel
+            value="delivery"
+            control={<Radio />}
+            label={
+              <Box className="delivery-option-label">
+                <Typography variant="body1">{strings.DELIVERY_OPTION}</Typography>
+                <Typography variant="body2" color="textSecondary">
+                  {strings.DELIVERY_DESCRIPTION}
+                </Typography>
+              </Box>
+            }
+          />
+        )}
       </RadioGroup>
 
-      {value === 'delivery' && (
+      {canBeDelivered && value === 'delivery' && (
         <Box className="delivery-address-form">
           <TextField
             fullWidth
@@ -187,6 +200,9 @@ const DeliveryOption = ({
               </Typography>
               <Typography variant="h6" color="primary">
                 {bookcarsHelper.formatPrice(deliveryPrice, strings.CURRENCY, env.DEFAULT_LANGUAGE)}
+              </Typography>
+              <Typography variant="caption" color="textSecondary">
+                ({deliveryPercentagePrice}% of rental fee = {bookcarsHelper.formatPrice((rentalPrice * deliveryPercentagePrice) / 100, strings.CURRENCY, env.DEFAULT_LANGUAGE)})
               </Typography>
             </Box>
           )}

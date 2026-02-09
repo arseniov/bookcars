@@ -86,6 +86,9 @@ const CreateCar = () => {
       fullyBooked: false,
       comingSoon: false,
       blockOnPay: true,
+      canBeDelivered: true,
+      deliveryBasePrice: String(env.DELIVERY_BASE_PRICE),
+      deliveryPercentagePrice: String(env.DELIVERY_PERCENTAGE_PRICE),
       type: '',
       gearbox: '',
       seats: '',
@@ -117,6 +120,7 @@ const CreateCar = () => {
   const fullyBooked = useWatch({ control, name: 'fullyBooked' })
   const comingSoon = useWatch({ control, name: 'comingSoon' })
   const blockOnPay = useWatch({ control, name: 'blockOnPay' })
+  const canBeDelivered = useWatch({ control, name: 'canBeDelivered' })
   const type = useWatch({ control, name: 'type' })
   const gearbox = useWatch({ control, name: 'gearbox' })
   const seats = useWatch({ control, name: 'seats' })
@@ -192,6 +196,9 @@ const CreateCar = () => {
         fullyBooked: data.fullyBooked,
         comingSoon: data.comingSoon,
         blockOnPay: data.blockOnPay,
+        canBeDelivered: data.canBeDelivered,
+        deliveryBasePrice: data.deliveryBasePrice ? Number(data.deliveryBasePrice) : env.DELIVERY_BASE_PRICE,
+        deliveryPercentagePrice: data.deliveryPercentagePrice ? Number(data.deliveryPercentagePrice) : env.DELIVERY_PERCENTAGE_PRICE,
         type: data.type,
         gearbox: data.gearbox,
         aircon: data.aircon,
@@ -666,6 +673,42 @@ const CreateCar = () => {
                 className="checkbox-fcl"
               />
             </FormControl>
+
+            <FormControl fullWidth margin="dense" className="checkbox-fc">
+              <FormControlLabel
+                control={(
+                  <Switch
+                    checked={canBeDelivered}
+                    onChange={(e) => setValue('canBeDelivered', e.target.checked)}
+                    color="primary"
+                  />
+                )}
+                label={strings.CAN_BE_DELIVERED}
+                className="checkbox-fcl"
+              />
+            </FormControl>
+
+            {canBeDelivered && (
+              <>
+                <FormControl fullWidth margin="dense">
+                  <InputLabel>{strings.DELIVERY_BASE_PRICE}</InputLabel>
+                  <Input
+                    type="number"
+                    {...register('deliveryBasePrice')}
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                </FormControl>
+
+                <FormControl fullWidth margin="dense">
+                  <InputLabel>{strings.DELIVERY_PERCENTAGE_PRICE}</InputLabel>
+                  <Input
+                    type="number"
+                    {...register('deliveryPercentagePrice')}
+                    inputProps={{ min: 0, max: 100, step: 0.01 }}
+                  />
+                </FormControl>
+              </>
+            )}
 
             <FormControl fullWidth margin="dense">
               <CarTypeList

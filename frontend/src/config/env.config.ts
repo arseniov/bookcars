@@ -137,6 +137,8 @@ const env = {
   DUAL_BOOKING_FLOW_ENABLED: (import.meta.env.VITE_BC_DUAL_BOOKING_FLOW && import.meta.env.VITE_BC_DUAL_BOOKING_FLOW.toLowerCase()) === 'true',
   RENTAL_AGREEMENT_ENABLED: (import.meta.env.VITE_BC_RENTAL_AGREEMENT && import.meta.env.VITE_BC_RENTAL_AGREEMENT.toLowerCase()) === 'true',
   DELIVERY_OPTION_ENABLED: (import.meta.env.VITE_BC_DELIVERY_OPTION && import.meta.env.VITE_BC_DELIVERY_OPTION.toLowerCase()) === 'true',
+  DELIVERY_BASE_PRICE: Number.parseFloat(String(import.meta.env.VITE_BC_DELIVERY_BASE_PRICE)) || 20,
+  DELIVERY_PERCENTAGE_PRICE: Number.parseFloat(String(import.meta.env.VITE_BC_DELIVERY_PERCENTAGE_PRICE)) || 5,
 }
 
 export default env

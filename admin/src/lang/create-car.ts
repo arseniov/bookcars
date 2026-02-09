@@ -39,6 +39,9 @@ const strings = new LocalizedStrings({
     IS_DATE_BASED_PRICE: 'Prix basé sur des dates',
     DATE_BASED_PRICES: 'Prix par dates',
     BLOCK_ON_PAY: 'Bloquer la voiture après un paiement réussi',
+    CAN_BE_DELIVERED: 'Peut être livré',
+    DELIVERY_BASE_PRICE: 'Prix de livraison fixe',
+    DELIVERY_PERCENTAGE_PRICE: 'Prix de livraison en pourcentage (%)',
   },
   en: {
     NEW_CAR_HEADING: 'New car',
@@ -76,6 +79,9 @@ const strings = new LocalizedStrings({
     IS_DATE_BASED_PRICE: 'Date Based Prices',
     DATE_BASED_PRICES: 'Date Based Prices',
     BLOCK_ON_PAY: 'Block Car On Successful Payment',
+    CAN_BE_DELIVERED: 'Can Be Delivered',
+    DELIVERY_BASE_PRICE: 'Fixed Delivery Price',
+    DELIVERY_PERCENTAGE_PRICE: 'Delivery Price Percentage (%)',
   },
   es: {
     NEW_CAR_HEADING: 'Nuevo coche',

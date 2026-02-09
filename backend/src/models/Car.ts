@@ -210,6 +210,18 @@ const carSchema = new Schema<env.Car>(
       type: Boolean,
       default: true,
     },
+    canBeDelivered: {
+      type: Boolean,
+      default: true,
+    },
+    deliveryBasePrice: {
+      type: Number,
+      default: 20,
+    },
+    deliveryPercentagePrice: {
+      type: Number,
+      default: 5,
+    },
   },
   {
     timestamps: true,

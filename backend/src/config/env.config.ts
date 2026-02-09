@@ -479,18 +479,18 @@ export const RENTAL_AGREEMENT_ENABLED = helper.StringToBoolean(__env__('BC_RENTA
 export const DELIVERY_OPTION_ENABLED = helper.StringToBoolean(__env__('BC_DELIVERY_OPTION_ENABLED', false, 'false'))
 
 /**
- * Delivery price per km.
+ * Default base delivery price (fixed fee).
  *
  * @type {number}
  */
-export const DELIVERY_BASE_RATE = Number.parseFloat(__env__('BC_DELIVERY_BASE_RATE', false, '2'))
+export const DELIVERY_BASE_PRICE = Number.parseFloat(__env__('BC_DELIVERY_BASE_PRICE', false, '20'))
 
 /**
- * Minimum delivery fee.
+ * Default delivery price as percentage of rental fee.
  *
  * @type {number}
  */
-export const DELIVERY_MIN_FEE = Number.parseFloat(__env__('BC_DELIVERY_MIN_FEE', false, '10'))
+export const DELIVERY_PERCENTAGE_PRICE = Number.parseFloat(__env__('BC_DELIVERY_PERCENTAGE_PRICE', false, '5'))
 
 /**
  * Enables or disables Sentry error reporting. Set to true to enable.
@@ -725,6 +725,9 @@ export interface Car extends Document {
   trips: number
   co2?: number
   blockOnPay?: boolean
+  canBeDelivered?: boolean
+  deliveryBasePrice?: number
+  deliveryPercentagePrice?: number
 }
 
 /**
@@ -757,6 +760,9 @@ export interface CarInfo {
   collisionDamageWaiver: number
   fullInsurance: number
   additionalDriver: number
+  canBeDelivered?: boolean
+  deliveryBasePrice?: number
+  deliveryPercentagePrice?: number
 }
 
 /**
