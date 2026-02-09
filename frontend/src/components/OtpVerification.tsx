@@ -1,23 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState } from 'react'
+import { OTPInput } from 'input-otp'
 import {
   Box,
   Typography,
-  OutlinedInput,
   Button,
-  FormHelperText,
+  InputBaseComponentProps,
 } from '@mui/material'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import * as UserService from '@/services/UserService'
 import { strings } from '@/lang/sign-up'
 import Error from '@/components/Error'
-
-const otpSchema = z.object({
-  otp: z.string().length(6, 'OTP must be 6 digits'),
-})
-
-type OtpFormFields = z.infer<typeof otpSchema>
 
 interface OtpVerificationProps {
   email: string
@@ -31,57 +22,19 @@ const OtpVerification = ({ email, onVerified, onResend, onBack }: OtpVerificatio
   const [error, setError] = useState<string>()
   const [resendSuccess, setResendSuccess] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
-  const otpInputs = Array(6).fill(0)
+  const [otp, setOtp] = useState('')
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors },
-  } = useForm<OtpFormFields>({
-    resolver: zodResolver(otpSchema),
-    mode: 'onChange',
-  })
-
-  const handleOtpChange = (index: number, value: string) => {
-    const newValue = value.replace(/\D/g, '')
-    setValue('otp', newValue)
-
-    if (newValue.length === 1 && index < 5) {
-      inputRefs.current[index + 1]?.focus()
+  const onSubmit = async () => {
+    if (otp.length !== 6) {
+      setError(strings.OTP_INVALID)
+      return
     }
-  }
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && index > 0) {
-      inputRefs.current[index - 1]?.focus()
-    }
-  }
-
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
-    if (pastedData.length > 0) {
-      const newOtp = pastedData.padEnd(6, '')
-      setValue('otp', newOtp)
-      newOtp.split('').forEach((char, index) => {
-        if (inputRefs.current[index]) {
-          inputRefs.current[index]!.value = char
-          if (index < 5 && char) {
-            inputRefs.current[index + 1]?.focus()
-          }
-        }
-      })
-    }
-    e.preventDefault()
-  }
-
-  const onSubmit = async (data: OtpFormFields) => {
     setLoading(true)
     setError(undefined)
 
     try {
-      const status = await UserService.verifyOtp(email, data.otp)
+      const status = await UserService.verifyOtp(email, otp)
       if (status === 200) {
         onVerified()
       } else {
@@ -98,6 +51,7 @@ const OtpVerification = ({ email, onVerified, onResend, onBack }: OtpVerificatio
     setResendLoading(true)
     setError(undefined)
     setResendSuccess(false)
+    setOtp('')
 
     try {
       const status = await UserService.resendOtp(email)
@@ -113,9 +67,10 @@ const OtpVerification = ({ email, onVerified, onResend, onBack }: OtpVerificatio
     }
   }
 
-  useEffect(() => {
-    inputRefs.current[0]?.focus()
-  }, [])
+  const inputBaseProps: InputBaseComponentProps = {
+    maxLength: 6,
+    autoComplete: 'one-time-code',
+  }
 
   return (
     <Box className="otp-verification">
@@ -129,63 +84,90 @@ const OtpVerification = ({ email, onVerified, onResend, onBack }: OtpVerificatio
         {email}
       </Typography>
 
-      <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-        <Box display="flex" gap={1} justifyContent="center" mb={3} onPaste={handlePaste}>
-          {otpInputs.map((_, index) => (
-            <OutlinedInput
-              key={index}
-              inputRef={(el) => { inputRefs.current[index] = el }}
-              inputProps={{
-                maxLength: 1,
-                style: { textAlign: 'center', fontSize: '24px', fontWeight: 'bold' }
-              }}
-              sx={{ width: 50, height: 60 }}
-              onChange={(e) => handleOtpChange(index, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(index, e)}
-              error={!!errors.otp}
-            />
-          ))}
-        </Box>
-        <input type="hidden" {...register('otp')} />
-
-        {errors.otp && (
-          <FormHelperText error sx={{ textAlign: 'center', mb: 2 }}>
-            {errors.otp.message}
-          </FormHelperText>
-        )}
-
-        {error && <Error message={error} />}
-
-        {resendSuccess && (
-          <Typography color="success.main" sx={{ textAlign: 'center', mb: 2 }}>
-            {strings.OTP_RESEND_SUCCESS}
-          </Typography>
-        )}
-
-        <Box display="flex" gap={2} justifyContent="center" mt={2}>
-          {onBack && (
-            <Button variant="outlined" onClick={onBack}>
-              {strings.BACK}
-            </Button>
+      <Box display="flex" justifyContent="center" mb={3}>
+        <OTPInput
+          maxLength={6}
+          value={otp}
+          onChange={setOtp}
+          containerClassName="otp-container"
+          render={({ slots }) => (
+            <Box display="flex" gap={1}>
+              {slots.map((slot, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    width: 48,
+                    height: 60,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid',
+                    borderColor: slot.isActive ? 'primary.main' : 'divider',
+                    borderRadius: 1,
+                    backgroundColor: slot.isActive ? 'action.hover' : 'background.paper',
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': {
+                      borderColor: 'primary.main',
+                    },
+                  }}
+                >
+                  {slot.char !== null && (
+                    <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                      {slot.char}
+                    </Typography>
+                  )}
+                  {slot.isActive && (
+                    <Box
+                      sx={{
+                      width: 2,
+                      height: 24,
+                      backgroundColor: 'primary.main',
+                      animation: 'caret-blink 1s ease-in-out infinite',
+                      '@keyframes caret-blink': {
+                        '0%, 100%': { opacity: 1 },
+                        '50%': { opacity: 0 },
+                      },
+                    }}
+                    />
+                  )}
+                </Box>
+              ))}
+            </Box>
           )}
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={loading}
-          >
-            {loading ? strings.CHECKING : strings.OTP_VERIFY}
-          </Button>
-        </Box>
+        />
+      </Box>
 
-        <Box textAlign="center" mt={2}>
-          <Button
-            variant="text"
-            onClick={handleResend}
-            disabled={resendLoading}
-          >
-            {strings.OTP_RESEND}
+      {error && <Error message={error} />}
+
+      {resendSuccess && (
+        <Typography color="success.main" sx={{ textAlign: 'center', mb: 2 }}>
+          {strings.OTP_RESEND_SUCCESS}
+        </Typography>
+      )}
+
+      <Box display="flex" gap={2} justifyContent="center" mt={2}>
+        {onBack && (
+          <Button variant="outlined" onClick={onBack}>
+            {strings.BACK}
           </Button>
-        </Box>
+        )}
+        <Button
+          variant="contained"
+          onClick={onSubmit}
+          disabled={loading || otp.length !== 6}
+        >
+          {loading ? strings.CHECKING : strings.OTP_VERIFY}
+        </Button>
+      </Box>
+
+      <Box textAlign="center" mt={2}>
+        <Button
+          variant="text"
+          onClick={handleResend}
+          disabled={resendLoading}
+        >
+          {strings.OTP_RESEND}
+        </Button>
       </Box>
     </Box>
   )
