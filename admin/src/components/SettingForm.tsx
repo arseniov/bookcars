@@ -19,7 +19,7 @@ interface SettingFormProps {
 const SettingForm = ({ settings, onSubmit: onFormSubmit }: SettingFormProps) => {
   const navigate = useNavigate()
 
-  const { register, handleSubmit, formState: { isSubmitting, errors }, setValue, watch } = useForm<FormFields>({
+  const { register, handleSubmit, formState: { isSubmitting, errors }, setValue, watch, control } = useForm<FormFields>({
     resolver: zodResolver(schema),
     mode: 'onBlur',
   })
