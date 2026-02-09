@@ -45,6 +45,7 @@ const strings = new LocalizedStrings({
     PICK_UP_CHECKLIST_DOCUMENTS_CONTENT: "Lors de la prise en charge du véhicule, vous aurez besoin d'un passeport ou une carte d'identité et un permis de conduire.",
     DELIVERY_ADDRESS: 'Adresse de livraison',
     DELIVERY_FEE: 'Frais de livraison',
+    DELIVERY_ADDRESS_REQUIRED: 'Veuillez entrer une adresse de livraison complète',
   },
   en: {
     BOOKING_HEADING: 'Book now',
@@ -89,6 +90,8 @@ const strings = new LocalizedStrings({
     PICK_UP_CHECKLIST_DOCUMENTS_CONTENT: "When you pick the car up, you'll need a passport or national ID card and a driver's license.",
     DELIVERY_ADDRESS: 'Delivery address',
     DELIVERY_FEE: 'Delivery fee',
+    DELIVERY_ADDRESS_REQUIRED: 'Please enter a complete delivery address',
+  },
   },
   es: {
     BOOKING_HEADING: 'Reservar ahora',
@@ -133,6 +136,7 @@ const strings = new LocalizedStrings({
     PICK_UP_CHECKLIST_DOCUMENTS_CONTENT: 'A la hora de recoger el vehículo deberás facilitar el pasaporte o el documento nacional de identidad y Todos los conductores deberán presentar su permiso de conducir.',
     DELIVERY_ADDRESS: 'Dirección de entrega',
     DELIVERY_FEE: 'Gastos de entrega',
+    DELIVERY_ADDRESS_REQUIRED: 'Por favor, introduce una dirección de entrega completa',
   },
 })
 

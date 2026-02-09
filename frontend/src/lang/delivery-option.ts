@@ -17,6 +17,7 @@ const strings = new LocalizedStrings({
     CURRENCY: PaymentService.getCurrencySymbol(),
     CALCULATING: 'Calcul des frais de livraison...',
     ERROR: 'Erreur lors du calcul des frais de livraison.',
+    CALCULATE: 'Calculer',
   },
   en: {
     TITLE: 'Delivery Option',
@@ -32,6 +33,7 @@ const strings = new LocalizedStrings({
     CURRENCY: PaymentService.getCurrencySymbol(),
     CALCULATING: 'Calculating delivery fees...',
     ERROR: 'Error calculating delivery fees.',
+    CALCULATE: 'Calculate',
   },
   es: {
     TITLE: 'Opción de entrega',
@@ -47,6 +49,7 @@ const strings = new LocalizedStrings({
     CURRENCY: PaymentService.getCurrencySymbol(),
     CALCULATING: 'Calculando gastos de entrega...',
     ERROR: 'Error al calcular los gastos de entrega.',
+    CALCULATE: 'Calcular',
   },
 })
 

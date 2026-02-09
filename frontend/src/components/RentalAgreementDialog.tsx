@@ -50,7 +50,7 @@ const RentalAgreementDialog = ({
         if (supplier && supplier.rentalAgreementContent) {
           setContent(supplier.rentalAgreementContent)
         } else {
-          setContent(strings.DEFAULT_CONTENT)
+          setContent('')
         }
         setLoading(false)
       } catch (err) {
@@ -79,11 +79,17 @@ const RentalAgreementDialog = ({
           <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
             <CircularProgress />
           </Box>
+        ) : !content ? (
+          <Typography variant="body1" className="agreement-text">
+            {strings.NO_CONTENT}
+          </Typography>
         ) : (
           <Box className="rental-agreement-content">
-            <Typography variant="body1" className="agreement-text">
-              {content || strings.DEFAULT_CONTENT}
-            </Typography>
+            <Typography
+              variant="body1"
+              className="agreement-text"
+              dangerouslySetInnerHTML={{ __html: content }}
+            />
           </Box>
         )}
       </DialogContent>

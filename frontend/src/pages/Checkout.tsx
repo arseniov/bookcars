@@ -239,8 +239,8 @@ const Checkout = () => {
         return
       }
 
-      if (deliveryOptionEnabled && deliveryOption === 'delivery' && !deliveryAddress?.street) {
-        setDeliveryError('Please enter a delivery address')
+      if (deliveryOptionEnabled && deliveryOption === 'delivery' && (!deliveryAddress?.street || !deliveryAddress?.city)) {
+        setDeliveryError(strings.DELIVERY_ADDRESS_REQUIRED)
         return
       }
 

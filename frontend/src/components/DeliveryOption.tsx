@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   RadioGroup,
   Radio,
@@ -7,9 +7,8 @@ import {
   Box,
   Typography,
   FormHelperText,
-  CircularProgress,
+  Button,
 } from '@mui/material'
-import { useForm, useWatch } from 'react-hook-form'
 import { strings } from '@/lang/delivery-option'
 import env from '@/config/env.config'
 import * as PaymentService from '@/services/PaymentService'
@@ -24,31 +23,19 @@ interface DeliveryOptionProps {
   error?: string
 }
 
-interface DeliveryFormFields {
-  street: string
-  city: string
-  zipCode: string
-  country: string
-}
-
 const DeliveryOption = ({
   value,
   onChange,
   pickupLocationId,
   error,
 }: DeliveryOptionProps) => {
+  const [street, setStreet] = useState('')
+  const [city, setCity] = useState('')
+  const [zipCode, setZipCode] = useState('')
+  const [country, setCountry] = useState('')
   const [loading, setLoading] = useState(false)
   const [deliveryPrice, setDeliveryPrice] = useState<number>(0)
   const [pickupLocation, setPickupLocation] = useState<bookcarsTypes.Location>()
-
-  const { control, setValue, formState: { errors } } = useForm<DeliveryFormFields>({
-    mode: 'onBlur',
-  })
-
-  const street = useWatch({ control, name: 'street' })
-  const city = useWatch({ control, name: 'city' })
-  const zipCode = useWatch({ control, name: 'zipCode' })
-  const country = useWatch({ control, name: 'country' })
 
   useEffect(() => {
     const fetchPickupLocation = async () => {
@@ -65,63 +52,43 @@ const DeliveryOption = ({
     }
   }, [pickupLocationId])
 
-  useEffect(() => {
-    if (value === 'pickup') {
-      onChange('pickup')
-    }
-  }, [value])
-
-  const handleDeliveryChange = async (newValue: 'pickup' | 'delivery') => {
-    if (newValue === 'delivery') {
-      setLoading(true)
-      try {
-        const address: bookcarsTypes.DeliveryAddress = {
-          street: street || '',
-          city: city || '',
-          zipCode: zipCode || '',
-          country: country || '',
-        }
-
-        if (street && city && pickupLocation) {
-          const price = await PaymentService.calculateDeliveryPrice(pickupLocationId, address)
-          setDeliveryPrice(price)
-          onChange('delivery', address, price)
-        } else {
-          onChange('delivery', address, 0)
-        }
-      } catch (err) {
-        console.error('Failed to calculate delivery price:', err)
-        onChange('delivery', { street: '', city: '', zipCode: '', country: '' }, 0)
-      } finally {
-        setLoading(false)
-      }
-    } else {
+  const handleDeliveryChange = (newValue: 'pickup' | 'delivery') => {
+    if (newValue === 'pickup') {
       onChange('pickup')
       setDeliveryPrice(0)
+    } else {
+      onChange('delivery', { street, city, zipCode, country }, deliveryPrice)
     }
   }
 
-  const handleAddressChange = async (field: string, fieldValue: string) => {
-    setValue(field as keyof DeliveryFormFields, fieldValue)
-
-    if (street && city && pickupLocation) {
-      setLoading(true)
-      try {
-        const address: bookcarsTypes.DeliveryAddress = {
-          street,
-          city,
-          zipCode,
-          country,
-        }
-        const price = await PaymentService.calculateDeliveryPrice(pickupLocationId, address)
-        setDeliveryPrice(price)
-        onChange('delivery', address, price)
-      } catch (err) {
-        console.error('Failed to calculate delivery price:', err)
-      } finally {
-        setLoading(false)
-      }
+  const handleCalculatePrice = async () => {
+    if (!street || !city) {
+      return
     }
+
+    setLoading(true)
+    try {
+      const address: bookcarsTypes.DeliveryAddress = {
+        street,
+        city,
+        zipCode,
+        country,
+      }
+      const price = await PaymentService.calculateDeliveryPrice(pickupLocationId, address)
+      setDeliveryPrice(price)
+      onChange('delivery', address, price)
+    } catch (err) {
+      console.error('Failed to calculate delivery price:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleFieldChange = (field: string, fieldValue: string) => {
+    if (field === 'street') setStreet(fieldValue)
+    if (field === 'city') setCity(fieldValue)
+    if (field === 'zipCode') setZipCode(fieldValue)
+    if (field === 'country') setCountry(fieldValue)
   }
 
   return (
@@ -163,67 +130,65 @@ const DeliveryOption = ({
 
       {value === 'delivery' && (
         <Box className="delivery-address-form">
-          {loading ? (
-            <Box display="flex" justifyContent="center" p={2}>
-              <CircularProgress size={24} />
+          <TextField
+            fullWidth
+            label={strings.STREET_LABEL}
+            variant="outlined"
+            margin="dense"
+            value={street}
+            onChange={(e) => handleFieldChange('street', e.target.value)}
+            disabled={loading}
+          />
+
+          <TextField
+            fullWidth
+            label={strings.CITY_LABEL}
+            variant="outlined"
+            margin="dense"
+            value={city}
+            onChange={(e) => handleFieldChange('city', e.target.value)}
+            disabled={loading}
+          />
+
+          <TextField
+            fullWidth
+            label={strings.ZIP_CODE_LABEL}
+            variant="outlined"
+            margin="dense"
+            value={zipCode}
+            onChange={(e) => handleFieldChange('zipCode', e.target.value)}
+            disabled={loading}
+          />
+
+          <TextField
+            fullWidth
+            label={strings.COUNTRY_LABEL}
+            variant="outlined"
+            margin="dense"
+            value={country}
+            onChange={(e) => handleFieldChange('country', e.target.value)}
+            disabled={loading}
+          />
+
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleCalculatePrice}
+            disabled={loading || !street || !city}
+            sx={{ mt: 2 }}
+          >
+            {loading ? strings.CALCULATING : strings.CALCULATE}
+          </Button>
+
+          {deliveryPrice > 0 && (
+            <Box className="delivery-price">
+              <Typography variant="body1">
+                {strings.DELIVERY_FEE}
+              </Typography>
+              <Typography variant="h6" color="primary">
+                {bookcarsHelper.formatPrice(deliveryPrice, strings.CURRENCY, env.DEFAULT_LANGUAGE)}
+              </Typography>
             </Box>
-          ) : (
-            <>
-              <TextField
-                {...control}
-                fullWidth
-                label={strings.STREET_LABEL}
-                variant="outlined"
-                margin="dense"
-                value={street || ''}
-                onChange={(e) => handleAddressChange('street', e.target.value)}
-                error={!!errors.street}
-                helperText={errors.street?.message}
-              />
-
-              <TextField
-                {...control}
-                fullWidth
-                label={strings.CITY_LABEL}
-                variant="outlined"
-                margin="dense"
-                value={city || ''}
-                onChange={(e) => handleAddressChange('city', e.target.value)}
-                error={!!errors.city}
-                helperText={errors.city?.message}
-              />
-
-              <TextField
-                {...control}
-                fullWidth
-                label={strings.ZIP_CODE_LABEL}
-                variant="outlined"
-                margin="dense"
-                value={zipCode || ''}
-                onChange={(e) => handleAddressChange('zipCode', e.target.value)}
-              />
-
-              <TextField
-                {...control}
-                fullWidth
-                label={strings.COUNTRY_LABEL}
-                variant="outlined"
-                margin="dense"
-                value={country || ''}
-                onChange={(e) => handleAddressChange('country', e.target.value)}
-              />
-
-              {deliveryPrice > 0 && (
-                <Box className="delivery-price">
-                  <Typography variant="body1">
-                    {strings.DELIVERY_FEE}
-                  </Typography>
-                  <Typography variant="h6" color="primary">
-                    {bookcarsHelper.formatPrice(deliveryPrice, strings.CURRENCY, env.DEFAULT_LANGUAGE)}
-                  </Typography>
-                </Box>
-              )}
-            </>
           )}
         </Box>
       )}
