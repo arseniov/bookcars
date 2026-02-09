@@ -4,29 +4,10 @@ import axiosInstance from './axiosInstance'
 import env from '@/config/env.config'
 
 /**
- * Calculate delivery price.
- *
- * @async
- * @param {string} pickupLocationId
- * @param {bookcarsTypes.DeliveryAddress} address
- * @returns {Promise<number>}
- */
-export const calculateDeliveryPrice = async (
-  pickupLocationId: string,
-  address: bookcarsTypes.DeliveryAddress,
-): Promise<number> => {
-  const res = await axiosInstance.post(
-    '/api/calculate-delivery-price',
-    { pickupLocationId, address },
-  )
-  return res.data
-}
-
-/**
  * Set currency.
-*
-* @param {string} currency
-*/
+ *
+ * @param {string} currency
+ */
 export const setCurrency = (currency: string) => {
   if (currency && bookcarsHelper.checkCurrency(currency.toUpperCase())) {
     localStorage.setItem('bc-fe-currency', currency.toUpperCase())
