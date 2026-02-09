@@ -548,6 +548,8 @@ export interface User extends Document {
   priceChangeRate?: number
   supplierCarLimit?: number
   notifyAdminOnNewCar?: boolean
+  rentalAgreementEnabled?: boolean
+  rentalAgreementContent?: string
 }
 
 /**
@@ -581,6 +583,8 @@ export interface UserInfo {
   priceChangeRate?: number
   supplierCarLimit?: number
   notifyAdminOnNewCar?: boolean
+  rentalAgreementEnabled?: boolean
+  rentalAgreementContent?: string
 }
 
 /**
